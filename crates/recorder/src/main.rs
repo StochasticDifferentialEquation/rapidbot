@@ -16,6 +16,15 @@ mod analyze;
 mod record;
 
 fn main() {
+    let _guard = sentry::init((
+        "https://023f178131cc96624f4f5b5fd37d2d4b@o4512307547013120.ingest.us.sentry.io/4512307554025472",
+        sentry::ClientOptions {
+            release: sentry::release_name!(),
+            send_default_pii: true,
+            ..Default::default()
+        },
+    ));
+
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         #[cfg(windows)]

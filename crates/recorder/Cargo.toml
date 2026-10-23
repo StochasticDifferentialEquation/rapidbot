@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 rapidbot-human.workspace = true
+sentry.workspace = true
 serde_json.workspace = true
 
 [target.'cfg(windows)'.dependencies]
