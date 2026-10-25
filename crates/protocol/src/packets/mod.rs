@@ -18,12 +18,26 @@ macro_rules! packet {
             const DIRECTION: $crate::Direction = packet!(@dir $dir);
         }
     };
-    (@state handshake) => { $crate::State::Handshake };
-    (@state status) => { $crate::State::Status };
-    (@state login) => { $crate::State::Login };
-    (@state configuration) => { $crate::State::Configuration };
-    (@state play) => { $crate::State::Play };
-    (@dir clientbound) => { $crate::Direction::Clientbound };
-    (@dir serverbound) => { $crate::Direction::Serverbound };
+    (@state handshake) => {
+        $crate::State::Handshake
+    };
+    (@state status) => {
+        $crate::State::Status
+    };
+    (@state login) => {
+        $crate::State::Login
+    };
+    (@state configuration) => {
+        $crate::State::Configuration
+    };
+    (@state play) => {
+        $crate::State::Play
+    };
+    (@dir clientbound) => {
+        $crate::Direction::Clientbound
+    };
+    (@dir serverbound) => {
+        $crate::Direction::Serverbound
+    };
 }
 pub(crate) use packet;

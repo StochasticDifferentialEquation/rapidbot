@@ -4,7 +4,9 @@
 use rapidbot_world::item::{EquipmentSlot, ItemData, ItemStack};
 
 fn unhex(s: &str) -> Vec<u8> {
-    (0..s.len() / 2).map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).unwrap()).collect()
+    (0..s.len() / 2)
+        .map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).unwrap())
+        .collect()
 }
 
 fn vectors() -> Vec<(String, Vec<u8>)> {
@@ -19,7 +21,10 @@ fn vectors() -> Vec<(String, Vec<u8>)> {
 }
 
 fn stack(snbt_start: &str) -> ItemStack {
-    let (_, bytes) = vectors().into_iter().find(|(s, _)| s.starts_with(snbt_start)).expect("vector");
+    let (_, bytes) = vectors()
+        .into_iter()
+        .find(|(s, _)| s.starts_with(snbt_start))
+        .expect("vector");
     ItemStack::decode(&mut bytes.as_slice()).unwrap().unwrap()
 }
 
@@ -70,7 +75,10 @@ fn empty_stack() {
 #[test]
 fn defaults_and_patches() {
     let stone = stack("{id:'minecraft:stone'");
-    assert_eq!((stone.name(), stone.count, stone.max_stack_size()), ("minecraft:stone", 64, 64));
+    assert_eq!(
+        (stone.name(), stone.count, stone.max_stack_size()),
+        ("minecraft:stone", 64, 64)
+    );
     assert!(!stone.is_damageable());
 
     let sword = stack("{id:'minecraft:diamond_sword'");
@@ -79,7 +87,11 @@ fn defaults_and_patches() {
     assert_eq!(sword.max_stack_size(), 1);
     // Unbreakable items are not damageable.
     assert!(!sword.is_damageable());
-    let mut levels: Vec<i32> = sword.enchantments().into_iter().map(|(_, level)| level).collect();
+    let mut levels: Vec<i32> = sword
+        .enchantments()
+        .into_iter()
+        .map(|(_, level)| level)
+        .collect();
     levels.sort();
     assert_eq!(levels, [3, 5]);
 
@@ -113,8 +125,14 @@ fn tool_rules() {
     let data = ItemData::get();
     let diamond = ItemStack::new(data.item_id("minecraft:diamond_pickaxe").unwrap(), 1);
     assert_eq!(diamond.tool().unwrap().mining_speed(stone, &tags), 8.0);
-    assert!(ItemStack::same_item_same_components(Some(&diamond), Some(&diamond.clone())));
-    assert!(!ItemStack::same_item_same_components(Some(&diamond), Some(&pick)));
+    assert!(ItemStack::same_item_same_components(
+        Some(&diamond),
+        Some(&diamond.clone())
+    ));
+    assert!(!ItemStack::same_item_same_components(
+        Some(&diamond),
+        Some(&pick)
+    ));
 }
 
 /// `LivingEntity.canGlideUsing`.

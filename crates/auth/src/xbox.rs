@@ -40,7 +40,10 @@ struct XboxError {
     message: String,
 }
 
-pub(crate) async fn user_token(http: &reqwest::Client, msa_access_token: &str) -> Result<XboxToken, AuthError> {
+pub(crate) async fn user_token(
+    http: &reqwest::Client,
+    msa_access_token: &str,
+) -> Result<XboxToken, AuthError> {
     // live.com tokens use the "t=" ticket prefix; Azure (MSAL) ones use "d=".
     let body = json!({
         "Properties": {
@@ -54,7 +57,10 @@ pub(crate) async fn user_token(http: &reqwest::Client, msa_access_token: &str) -
     post(http, USER_AUTH_URL, &body, "2").await
 }
 
-pub(crate) async fn xsts_token(http: &reqwest::Client, user_token: &str) -> Result<XboxToken, AuthError> {
+pub(crate) async fn xsts_token(
+    http: &reqwest::Client,
+    user_token: &str,
+) -> Result<XboxToken, AuthError> {
     let body = json!({
         "Properties": {
             "SandboxId": "RETAIL",
@@ -89,8 +95,17 @@ async fn post(
         return Err(AuthError::Xbox(detail));
     }
     let r: XboxResponse = response.json().await?;
-    let uhs = r.display_claims.xui.into_iter().next().map(|x| x.uhs).unwrap_or_default();
-    Ok(XboxToken { token: r.token, uhs })
+    let uhs = r
+        .display_claims
+        .xui
+        .into_iter()
+        .next()
+        .map(|x| x.uhs)
+        .unwrap_or_default();
+    Ok(XboxToken {
+        token: r.token,
+        uhs,
+    })
 }
 
 fn xerr_message(code: u64) -> &'static str {

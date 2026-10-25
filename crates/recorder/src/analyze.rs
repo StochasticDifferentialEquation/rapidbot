@@ -49,7 +49,9 @@ pub fn run(path: &str, sensitivity: f64) -> Result<String, String> {
 
     for line in text.lines() {
         let mut parts = line.split(',');
-        let (Some(t), Some(kind), Some(a), Some(b)) = (parts.next(), parts.next(), parts.next(), parts.next()) else {
+        let (Some(t), Some(kind), Some(a), Some(b)) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+        else {
             continue;
         };
         let Ok(t) = t.parse::<f64>() else { continue };
@@ -57,14 +59,22 @@ pub fn run(path: &str, sensitivity: f64) -> Result<String, String> {
         last_t = t;
         match kind {
             "m" => {
-                let (dx, dy) = (a.parse::<f64>().unwrap_or(0.0), b.parse::<f64>().unwrap_or(0.0));
+                let (dx, dy) = (
+                    a.parse::<f64>().unwrap_or(0.0),
+                    b.parse::<f64>().unwrap_or(0.0),
+                );
                 match strokes.last_mut() {
                     Some(s) if t - s.end <= STROKE_GAP => {
                         s.end = t;
                         s.dx += dx;
                         s.dy += dy;
                     }
-                    _ => strokes.push(Stroke { start: t, end: t, dx, dy }),
+                    _ => strokes.push(Stroke {
+                        start: t,
+                        end: t,
+                        dx,
+                        dy,
+                    }),
                 }
             }
             "k" => {
@@ -89,7 +99,10 @@ pub fn run(path: &str, sensitivity: f64) -> Result<String, String> {
         focused_time += last_t - since;
     }
     if strokes.len() < 50 {
-        return Err(format!("only {} mouse strokes in the recording; play for longer", strokes.len()));
+        return Err(format!(
+            "only {} mouse strokes in the recording; play for longer",
+            strokes.len()
+        ));
     }
 
     let mut profile = MouseProfile::default();
@@ -99,12 +112,20 @@ pub fn run(path: &str, sensitivity: f64) -> Result<String, String> {
     let points: Vec<(f64, f64)> = strokes
         .iter()
         .filter(|s| amplitude(s) >= 3.0 && s.end > s.start)
-        .map(|s| ((amplitude(s) / profile.target_width + 1.0).log2(), s.end - s.start))
+        .map(|s| {
+            (
+                (amplitude(s) / profile.target_width + 1.0).log2(),
+                s.end - s.start,
+            )
+        })
         .collect();
     let mut fitts_note = "too few large strokes; kept defaults".to_owned();
     if points.len() >= 30 {
         let n = points.len() as f64;
-        let (mx, my) = (points.iter().map(|p| p.0).sum::<f64>() / n, points.iter().map(|p| p.1).sum::<f64>() / n);
+        let (mx, my) = (
+            points.iter().map(|p| p.0).sum::<f64>() / n,
+            points.iter().map(|p| p.1).sum::<f64>() / n,
+        );
         let sxx: f64 = points.iter().map(|p| (p.0 - mx).powi(2)).sum();
         let sxy: f64 = points.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum();
         if sxx > 0.0 {
@@ -135,7 +156,9 @@ pub fn run(path: &str, sensitivity: f64) -> Result<String, String> {
     // Fidgets: small strokes with quiet on both sides.
     let fidgets = strokes
         .windows(3)
-        .filter(|w| amplitude(&w[1]) < 1.5 && w[1].start - w[0].end > 0.5 && w[2].start - w[1].end > 0.5)
+        .filter(|w| {
+            amplitude(&w[1]) < 1.5 && w[1].start - w[0].end > 0.5 && w[2].start - w[1].end > 0.5
+        })
         .count();
     if fidgets > 0 && focused_time > 60.0 {
         profile.fidget_interval = (focused_time / fidgets as f64).clamp(1.0, 120.0);
@@ -147,10 +170,28 @@ pub fn run(path: &str, sensitivity: f64) -> Result<String, String> {
         .map(|s| amplitude(s) / (s.end - s.start))
         .collect();
     let mut report = String::new();
-    let _ = writeln!(report, "// {} strokes over {:.0} s in game ({:.3} deg/count)", strokes.len(), focused_time, deg_per_count);
-    let _ = writeln!(report, "// Fitts: a = {:.3} s, b = {:.3} s/bit ({fitts_note})", profile.fitts_a, profile.fitts_b);
-    let _ = writeln!(report, "// corrections seen: {corrections}; settle median {:.3} s", profile.settle_median);
-    let _ = writeln!(report, "// fidgets: {fidgets}; one every {:.1} s", profile.fidget_interval);
+    let _ = writeln!(
+        report,
+        "// {} strokes over {:.0} s in game ({:.3} deg/count)",
+        strokes.len(),
+        focused_time,
+        deg_per_count
+    );
+    let _ = writeln!(
+        report,
+        "// Fitts: a = {:.3} s, b = {:.3} s/bit ({fitts_note})",
+        profile.fitts_a, profile.fitts_b
+    );
+    let _ = writeln!(
+        report,
+        "// corrections seen: {corrections}; settle median {:.3} s",
+        profile.settle_median
+    );
+    let _ = writeln!(
+        report,
+        "// fidgets: {fidgets}; one every {:.1} s",
+        profile.fidget_interval
+    );
     if let Some(m) = median(&mut speeds) {
         let _ = writeln!(report, "// median mean stroke speed {m:.0} deg/s");
     }
@@ -159,7 +200,10 @@ pub fn run(path: &str, sensitivity: f64) -> Result<String, String> {
     for (key, durations) in keys {
         let count = durations.len();
         if let Some(m) = median(durations) {
-            let _ = writeln!(report, "// key {key}: {count} presses, median hold {m:.3} s");
+            let _ = writeln!(
+                report,
+                "// key {key}: {count} presses, median hold {m:.3} s"
+            );
         }
     }
     report.push_str(&serde_json::to_string_pretty(&profile).map_err(|e| e.to_string())?);
@@ -182,7 +226,10 @@ mod tests {
             let samples = (duration / 0.008).round() as i64;
             for s in 0..=samples {
                 let dx = counts / (samples + 1) + i64::from(s < counts % (samples + 1));
-                csv.push_str(&format!("{},m,{dx},0\n", t + (s as f64 * duration / samples as f64 * 1e6) as u64));
+                csv.push_str(&format!(
+                    "{},m,{dx},0\n",
+                    t + (s as f64 * duration / samples as f64 * 1e6) as u64
+                ));
             }
             t += (duration * 1e6) as u64 + 700_000;
         }
@@ -192,7 +239,15 @@ mod tests {
         let report = run(path.to_str().unwrap(), 0.5).unwrap();
         let json = &report[report.find('{').unwrap()..];
         let profile: MouseProfile = serde_json::from_str(json).unwrap();
-        assert!((profile.fitts_a - 0.10).abs() < 0.02, "a = {}", profile.fitts_a);
-        assert!((profile.fitts_b - 0.09).abs() < 0.01, "b = {}", profile.fitts_b);
+        assert!(
+            (profile.fitts_a - 0.10).abs() < 0.02,
+            "a = {}",
+            profile.fitts_a
+        );
+        assert!(
+            (profile.fitts_b - 0.09).abs() < 0.01,
+            "b = {}",
+            profile.fitts_b
+        );
     }
 }

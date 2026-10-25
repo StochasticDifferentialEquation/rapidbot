@@ -35,16 +35,29 @@ impl Controller for Fly {
         let t = ctx.tick;
         let keys = match t {
             // Double tap: press, release for three ticks, press again.
-            t if t == START || t == START + 4 => Keys { jump: true, ..Keys::default() },
+            t if t == START || t == START + 4 => Keys {
+                jump: true,
+                ..Keys::default()
+            },
             t if t < START + 5 => Keys::default(),
             // Climb.
-            t if t < START + 45 => Keys { jump: true, ..Keys::default() },
+            t if t < START + 45 => Keys {
+                jump: true,
+                ..Keys::default()
+            },
             // Hover: no input, y must stay put.
             t if t < START + 105 => Keys::default(),
             // Sprint forward (flying sprint doubles the flying speed).
-            t if t < START + 145 => Keys { forward: true, sprint: true, ..Keys::default() },
+            t if t < START + 145 => Keys {
+                forward: true,
+                sprint: true,
+                ..Keys::default()
+            },
             // Descend until the landing ends flight.
-            _ if p.abilities.flying => Keys { shift: true, ..Keys::default() },
+            _ if p.abilities.flying => Keys {
+                shift: true,
+                ..Keys::default()
+            },
             _ => {
                 if t % 20 == 0 {
                     tracing::info!(on_ground = p.on_ground, "landed, flight ended");

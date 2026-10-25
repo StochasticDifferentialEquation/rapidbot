@@ -15,13 +15,17 @@ use syn::{Data, DeriveInput, Expr, Fields, Ident, Type, parse_macro_input};
 #[proc_macro_derive(Encode, attributes(var, discriminant))]
 pub fn derive_encode(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    expand_encode(&input).unwrap_or_else(|e| e.to_compile_error()).into()
+    expand_encode(&input)
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
 }
 
 #[proc_macro_derive(Decode, attributes(var, discriminant))]
 pub fn derive_decode(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    expand_decode(&input).unwrap_or_else(|e| e.to_compile_error()).into()
+    expand_decode(&input)
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
 }
 
 fn is_var(attrs: &[syn::Attribute]) -> bool {
@@ -78,12 +82,18 @@ fn decode_field(attrs: &[syn::Attribute]) -> TokenStream {
 fn bindings(fields: &Fields) -> (Vec<Ident>, TokenStream) {
     match fields {
         Fields::Named(named) => {
-            let names: Vec<_> = named.named.iter().map(|f| f.ident.clone().unwrap()).collect();
+            let names: Vec<_> = named
+                .named
+                .iter()
+                .map(|f| f.ident.clone().unwrap())
+                .collect();
             let pat = quote! { { #(#names),* } };
             (names, pat)
         }
         Fields::Unnamed(unnamed) => {
-            let names: Vec<_> = (0..unnamed.unnamed.len()).map(|i| format_ident!("f{i}")).collect();
+            let names: Vec<_> = (0..unnamed.unnamed.len())
+                .map(|i| format_ident!("f{i}"))
+                .collect();
             let pat = quote! { ( #(#names),* ) };
             (names, pat)
         }
@@ -128,21 +138,31 @@ fn expand_encode(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
         Data::Enum(data) => {
             let disc_ty = discriminant_type(input)?;
-            let arms = data.variants.iter().zip(discriminants(data)).map(|(v, disc)| {
-                let ident = &v.ident;
-                let (names, pat) = bindings(&v.fields);
-                let write_disc = match &disc_ty {
-                    Some(ty) => quote! { ::rapidbot_buf::Encode::encode(&((#disc) as #ty), buf); },
-                    None => quote! { ::rapidbot_buf::EncodeVar::encode_var(&(#disc), buf); },
-                };
-                let writes = v.fields.iter().zip(&names).map(|(f, n)| encode_field(quote! { #n }, &f.attrs));
-                quote! {
-                    Self::#ident #pat => {
-                        #write_disc
-                        #(#writes)*
+            let arms = data
+                .variants
+                .iter()
+                .zip(discriminants(data))
+                .map(|(v, disc)| {
+                    let ident = &v.ident;
+                    let (names, pat) = bindings(&v.fields);
+                    let write_disc = match &disc_ty {
+                        Some(ty) => {
+                            quote! { ::rapidbot_buf::Encode::encode(&((#disc) as #ty), buf); }
+                        }
+                        None => quote! { ::rapidbot_buf::EncodeVar::encode_var(&(#disc), buf); },
+                    };
+                    let writes = v
+                        .fields
+                        .iter()
+                        .zip(&names)
+                        .map(|(f, n)| encode_field(quote! { #n }, &f.attrs));
+                    quote! {
+                        Self::#ident #pat => {
+                            #write_disc
+                            #(#writes)*
+                        }
                     }
-                }
-            });
+                });
             quote! {
                 match self {
                     #(#arms)*
@@ -178,11 +198,15 @@ fn expand_decode(input: &DeriveInput) -> syn::Result<TokenStream> {
                 Some(ty) => quote! { <#ty as ::rapidbot_buf::Decode>::decode(buf)? as i32 },
                 None => quote! { <i32 as ::rapidbot_buf::DecodeVar>::decode_var(buf)? },
             };
-            let arms = data.variants.iter().zip(discriminants(data)).map(|(v, disc)| {
-                let ident = &v.ident;
-                let ctor = construct(&v.fields);
-                quote! { d if d == #disc => Ok(Self::#ident #ctor), }
-            });
+            let arms = data
+                .variants
+                .iter()
+                .zip(discriminants(data))
+                .map(|(v, disc)| {
+                    let ident = &v.ident;
+                    let ctor = construct(&v.fields);
+                    quote! { d if d == #disc => Ok(Self::#ident #ctor), }
+                });
             quote! {
                 let d = #read_disc;
                 match d {

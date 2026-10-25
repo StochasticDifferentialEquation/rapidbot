@@ -70,7 +70,11 @@ impl CommandTree {
                 .into_iter()
                 .map(|v| node_reference(v.0, count))
                 .collect::<Result<_, _>>()?;
-            let redirect = if flags & 8 != 0 { Some(node_reference(VarInt::decode(buf)?.0, count)?) } else { None };
+            let redirect = if flags & 8 != 0 {
+                Some(node_reference(VarInt::decode(buf)?.0, count)?)
+            } else {
+                None
+            };
             let kind = match flags & 3 {
                 2 => {
                     let name = String::decode(buf)?;
@@ -84,7 +88,11 @@ impl CommandTree {
                 1 => Kind::Literal(String::decode(buf)?),
                 _ => Kind::Root,
             };
-            nodes.push(Node { kind, children, redirect });
+            nodes.push(Node {
+                kind,
+                children,
+                redirect,
+            });
         }
         let root = node_reference(VarInt::decode(buf)?.0, count)?;
         Ok(Self { nodes, root })
@@ -108,19 +116,32 @@ impl CommandTree {
 
     /// `CommandDispatcher.parseNodes`: the parse that gets furthest, as
     /// (position reached, signable arguments on the way).
-    fn parse(&self, node: usize, input: &str, start: usize, signing: bool, depth: usize) -> (usize, Vec<(String, String)>) {
+    fn parse(
+        &self,
+        node: usize,
+        input: &str,
+        start: usize,
+        signing: bool,
+        depth: usize,
+    ) -> (usize, Vec<(String, String)>) {
         let mut best = (start, Vec::new());
         if depth > 64 {
             return best;
         }
         for &child in self.relevant_children(node, input, start) {
-            let Some(end) = self.consume(child, input, start) else { continue };
+            let Some(end) = self.consume(child, input, start) else {
+                continue;
+            };
             // Brigadier: an argument must be followed by a space or the end.
             if end < input.len() && input.as_bytes()[end] != b' ' {
                 continue;
             }
             let mut arguments = Vec::new();
-            if let Kind::Argument { name, parser: Parser::Message } = &self.nodes[child].kind {
+            if let Kind::Argument {
+                name,
+                parser: Parser::Message,
+            } = &self.nodes[child].kind
+            {
                 if signing {
                     arguments.push((name.clone(), input[start..end].to_owned()));
                 }
@@ -148,16 +169,28 @@ impl CommandTree {
 
     /// `CommandNode.getRelevantNodes`: the literal named by the next word
     /// if there is one, else every argument.
-    fn relevant_children(&self, node: usize, input: &str, start: usize) -> impl Iterator<Item = &usize> {
+    fn relevant_children(
+        &self,
+        node: usize,
+        input: &str,
+        start: usize,
+    ) -> impl Iterator<Item = &usize> {
         let children = &self.nodes[node].children;
         let word = input[start..].split(' ').next().unwrap_or("");
         let literal = children
             .iter()
             .position(|&c| matches!(&self.nodes.get(c).map(|n| &n.kind), Some(Kind::Literal(name)) if name == word));
-        children.iter().enumerate().filter_map(move |(i, c)| match literal {
-            Some(l) => (i == l).then_some(c),
-            None => matches!(self.nodes.get(*c).map(|n| &n.kind), Some(Kind::Argument { .. })).then_some(c),
-        })
+        children
+            .iter()
+            .enumerate()
+            .filter_map(move |(i, c)| match literal {
+                Some(l) => (i == l).then_some(c),
+                None => matches!(
+                    self.nodes.get(*c).map(|n| &n.kind),
+                    Some(Kind::Argument { .. })
+                )
+                .then_some(c),
+            })
     }
 
     /// Where `child` stops reading, or `None` if it does not match.
@@ -198,9 +231,15 @@ impl CommandTree {
 }
 
 fn node_reference(value: i32, node_count: usize) -> Result<usize, DecodeError> {
-    let index = usize::try_from(value).map_err(|_| DecodeError::InvalidDiscriminant { ty: "command node reference", value })?;
+    let index = usize::try_from(value).map_err(|_| DecodeError::InvalidDiscriminant {
+        ty: "command node reference",
+        value,
+    })?;
     if index >= node_count {
-        return Err(DecodeError::InvalidDiscriminant { ty: "command node reference", value });
+        return Err(DecodeError::InvalidDiscriminant {
+            ty: "command node reference",
+            value,
+        });
     }
     Ok(index)
 }
@@ -256,11 +295,18 @@ fn token_length(s: &str) -> usize {
 /// then whatever that type's `serializeToNetwork` wrote.
 fn read_parser(buf: &mut &[u8]) -> Result<Parser, DecodeError> {
     let id = VarInt::decode(buf)?.0;
-    let name = Registry::get().command_argument_types.get(id as usize).map(String::as_str).unwrap_or("");
+    let name = Registry::get()
+        .command_argument_types
+        .get(id as usize)
+        .map(String::as_str)
+        .unwrap_or("");
     let number = |buf: &mut &[u8], size: usize| -> Result<(), DecodeError> {
         // ArgumentUtils.createNumberFlags: bit 0 minimum, bit 1 maximum.
         let flags = u8::decode(buf)?;
-        rapidbot_buf::take(buf, size * (flags & 1) as usize + size * (flags >> 1 & 1) as usize)?;
+        rapidbot_buf::take(
+            buf,
+            size * (flags & 1) as usize + size * (flags >> 1 & 1) as usize,
+        )?;
         Ok(())
     };
     Ok(match name {
@@ -307,10 +353,21 @@ mod tests {
     use super::*;
 
     fn parser_id(name: &str) -> i32 {
-        Registry::get().command_argument_types.iter().position(|n| n == name).unwrap() as i32
+        Registry::get()
+            .command_argument_types
+            .iter()
+            .position(|n| n == name)
+            .unwrap() as i32
     }
 
-    fn node(out: &mut Vec<u8>, flags: u8, children: &[i32], redirect: Option<i32>, name: Option<&str>, parser: Option<(&str, &[u8])>) {
+    fn node(
+        out: &mut Vec<u8>,
+        flags: u8,
+        children: &[i32],
+        redirect: Option<i32>,
+        name: Option<&str>,
+        parser: Option<(&str, &[u8])>,
+    ) {
         out.push(flags | if redirect.is_some() { 8 } else { 0 });
         VarInt(children.len() as i32).encode(out);
         for c in children {
@@ -338,15 +395,50 @@ mod tests {
         VarInt(11).encode(&mut b);
         node(&mut b, 0, &[1, 4, 5, 7, 9], None, None, None); // 0 root
         node(&mut b, 1, &[2], None, Some("msg"), None); // 1
-        node(&mut b, 2, &[3], None, Some("targets"), Some(("minecraft:entity", &[3]))); // 2
-        node(&mut b, 2 | 4, &[], None, Some("message"), Some(("minecraft:message", &[]))); // 3
+        node(
+            &mut b,
+            2,
+            &[3],
+            None,
+            Some("targets"),
+            Some(("minecraft:entity", &[3])),
+        ); // 2
+        node(
+            &mut b,
+            2 | 4,
+            &[],
+            None,
+            Some("message"),
+            Some(("minecraft:message", &[])),
+        ); // 3
         node(&mut b, 1, &[], Some(1), Some("tell"), None); // 4
         node(&mut b, 1, &[6], None, Some("tp"), None); // 5
-        node(&mut b, 2 | 4, &[], None, Some("location"), Some(("minecraft:vec3", &[]))); // 6
+        node(
+            &mut b,
+            2 | 4,
+            &[],
+            None,
+            Some("location"),
+            Some(("minecraft:vec3", &[])),
+        ); // 6
         node(&mut b, 1, &[8], None, Some("give"), None); // 7
-        node(&mut b, 2, &[10], None, Some("target"), Some(("minecraft:entity", &[2]))); // 8
+        node(
+            &mut b,
+            2,
+            &[10],
+            None,
+            Some("target"),
+            Some(("minecraft:entity", &[2])),
+        ); // 8
         node(&mut b, 1, &[], Some(0), Some("execute"), None); // 9 (stands in for `execute run`)
-        node(&mut b, 2 | 4, &[], None, Some("count"), Some(("brigadier:integer", &[1, 0, 0, 0, 1]))); // 10
+        node(
+            &mut b,
+            2 | 4,
+            &[],
+            None,
+            Some("count"),
+            Some(("brigadier:integer", &[1, 0, 0, 0, 1])),
+        ); // 10
         VarInt(0).encode(&mut b);
         CommandTree::decode(&b).unwrap()
     }
@@ -354,9 +446,15 @@ mod tests {
     #[test]
     fn message_arguments_are_signable() {
         let t = tree();
-        assert_eq!(t.signable_arguments("msg Steve hello there  friend"), [("message".to_owned(), "hello there  friend".to_owned())]);
+        assert_eq!(
+            t.signable_arguments("msg Steve hello there  friend"),
+            [("message".to_owned(), "hello there  friend".to_owned())]
+        );
         // Through an alias (a redirect to another node).
-        assert_eq!(t.signable_arguments("tell Steve hi"), [("message".to_owned(), "hi".to_owned())]);
+        assert_eq!(
+            t.signable_arguments("tell Steve hi"),
+            [("message".to_owned(), "hi".to_owned())]
+        );
         // A selector with spaces is one argument.
         assert_eq!(
             t.signable_arguments("msg @a[name=\"Old Steve\", limit=1] hi all"),
@@ -372,7 +470,11 @@ mod tests {
         assert!(t.signable_arguments("msg").is_empty());
         assert!(t.signable_arguments("msg Steve").is_empty());
         assert!(t.signable_arguments("unknown thing").is_empty());
-        assert!(CommandTree::default().signable_arguments("msg Steve hi").is_empty());
+        assert!(
+            CommandTree::default()
+                .signable_arguments("msg Steve hi")
+                .is_empty()
+        );
         // Behind a redirect to the root nothing is signed.
         assert!(t.signable_arguments("execute msg Steve hi").is_empty());
     }
@@ -381,11 +483,17 @@ mod tests {
     fn decode_bounds_node_count_by_packet_size() {
         let mut b = Vec::new();
         VarInt(i32::MAX).encode(&mut b);
-        assert!(matches!(CommandTree::decode(&b), Err(DecodeError::UnexpectedEof)));
+        assert!(matches!(
+            CommandTree::decode(&b),
+            Err(DecodeError::UnexpectedEof)
+        ));
 
         let mut b = Vec::new();
         VarInt(-1).encode(&mut b);
-        assert!(matches!(CommandTree::decode(&b), Err(DecodeError::NegativeLength(-1))));
+        assert!(matches!(
+            CommandTree::decode(&b),
+            Err(DecodeError::NegativeLength(-1))
+        ));
     }
 
     #[test]
@@ -394,24 +502,48 @@ mod tests {
         VarInt(1).encode(&mut root);
         node(&mut root, 0, &[], None, None, None);
         VarInt(1).encode(&mut root);
-        assert!(matches!(CommandTree::decode(&root), Err(DecodeError::InvalidDiscriminant { ty: "command node reference", value: 1 })));
+        assert!(matches!(
+            CommandTree::decode(&root),
+            Err(DecodeError::InvalidDiscriminant {
+                ty: "command node reference",
+                value: 1
+            })
+        ));
 
         let mut negative_root = Vec::new();
         VarInt(1).encode(&mut negative_root);
         node(&mut negative_root, 0, &[], None, None, None);
         VarInt(-1).encode(&mut negative_root);
-        assert!(matches!(CommandTree::decode(&negative_root), Err(DecodeError::InvalidDiscriminant { ty: "command node reference", value: -1 })));
+        assert!(matches!(
+            CommandTree::decode(&negative_root),
+            Err(DecodeError::InvalidDiscriminant {
+                ty: "command node reference",
+                value: -1
+            })
+        ));
 
         let mut child = Vec::new();
         VarInt(1).encode(&mut child);
         node(&mut child, 0, &[1], None, None, None);
         VarInt(0).encode(&mut child);
-        assert!(matches!(CommandTree::decode(&child), Err(DecodeError::InvalidDiscriminant { ty: "command node reference", value: 1 })));
+        assert!(matches!(
+            CommandTree::decode(&child),
+            Err(DecodeError::InvalidDiscriminant {
+                ty: "command node reference",
+                value: 1
+            })
+        ));
 
         let mut redirect = Vec::new();
         VarInt(1).encode(&mut redirect);
         node(&mut redirect, 0, &[], Some(1), None, None);
         VarInt(0).encode(&mut redirect);
-        assert!(matches!(CommandTree::decode(&redirect), Err(DecodeError::InvalidDiscriminant { ty: "command node reference", value: 1 })));
+        assert!(matches!(
+            CommandTree::decode(&redirect),
+            Err(DecodeError::InvalidDiscriminant {
+                ty: "command node reference",
+                value: 1
+            })
+        ));
     }
 }

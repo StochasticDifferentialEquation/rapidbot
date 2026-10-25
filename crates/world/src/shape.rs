@@ -33,7 +33,11 @@ pub struct PlacedShape<'a> {
 
 impl Shape {
     pub fn new(coords: [Vec<f64>; 3], fill: Vec<bool>, is_block: bool) -> Self {
-        let sizes = [coords[0].len() - 1, coords[1].len() - 1, coords[2].len() - 1];
+        let sizes = [
+            coords[0].len() - 1,
+            coords[1].len() - 1,
+            coords[2].len() - 1,
+        ];
         assert_eq!(fill.len(), sizes[0] * sizes[1] * sizes[2]);
         let mut first_full = [usize::MAX; 3];
         let mut last_full = [0; 3];
@@ -49,7 +53,13 @@ impl Shape {
                 }
             }
         }
-        Self { coords, fill, first_full, last_full, is_block }
+        Self {
+            coords,
+            fill,
+            first_full,
+            last_full,
+            is_block,
+        }
     }
 
     pub fn size(&self, axis: Axis) -> usize {
@@ -70,7 +80,10 @@ impl Shape {
             return false;
         }
         let (x, y, z) = (x as usize, y as usize, z as usize);
-        x < self.size(Axis::X) && y < self.size(Axis::Y) && z < self.size(Axis::Z) && self.is_full(x, y, z)
+        x < self.size(Axis::X)
+            && y < self.size(Axis::Y)
+            && z < self.size(Axis::Z)
+            && self.is_full(x, y, z)
     }
 
     /// Whether a cell is filled.
@@ -82,11 +95,18 @@ impl Shape {
     /// cell (`findIndex` on each axis, then `isFullWide`).
     pub(crate) fn contains_point(&self, p: [f64; 3]) -> bool {
         let placed = self.at(0, 0, 0);
-        self.is_full_wide(placed.find_index(Axis::X, p[0]), placed.find_index(Axis::Y, p[1]), placed.find_index(Axis::Z, p[2]))
+        self.is_full_wide(
+            placed.find_index(Axis::X, p[0]),
+            placed.find_index(Axis::Y, p[1]),
+            placed.find_index(Axis::Z, p[2]),
+        )
     }
 
     pub fn at(&self, x: i32, y: i32, z: i32) -> PlacedShape<'_> {
-        PlacedShape { shape: self, offset: [x as f64, y as f64, z as f64] }
+        PlacedShape {
+            shape: self,
+            offset: [x as f64, y as f64, z as f64],
+        }
     }
 }
 
@@ -99,7 +119,9 @@ impl PlacedShape<'_> {
     /// Coordinates along `axis`, moved.
     pub fn coords(&self, axis: Axis) -> impl Iterator<Item = f64> + '_ {
         let offset = self.offset[axis.index()];
-        self.shape.coords[axis.index()].iter().map(move |c| c + offset)
+        self.shape.coords[axis.index()]
+            .iter()
+            .map(move |c| c + offset)
     }
 
     /// `VoxelShape.findIndex`: `Mth.binarySearch(0, size + 1, i -> coord < get(i)) - 1`.
@@ -139,9 +161,11 @@ impl PlacedShape<'_> {
         let a_min = self.find_index(axis, min_a + EPSILON);
         let a_max = self.find_index(axis, max_a - EPSILON);
         let b_min = self.find_index(b_axis, moving.min(b_axis) + EPSILON).max(0);
-        let b_max = (self.find_index(b_axis, moving.max(b_axis) - EPSILON) + 1).min(self.shape.size(b_axis) as i64);
+        let b_max = (self.find_index(b_axis, moving.max(b_axis) - EPSILON) + 1)
+            .min(self.shape.size(b_axis) as i64);
         let c_min = self.find_index(c_axis, moving.min(c_axis) + EPSILON).max(0);
-        let c_max = (self.find_index(c_axis, moving.max(c_axis) - EPSILON) + 1).min(self.shape.size(c_axis) as i64);
+        let c_max = (self.find_index(c_axis, moving.max(c_axis) - EPSILON) + 1)
+            .min(self.shape.size(c_axis) as i64);
         let a_size = self.shape.size(axis) as i64;
 
         // Map (a, b, c) back to (x, y, z) for the fill lookup.
@@ -263,7 +287,11 @@ fn merge(first: &[f64], second: &[f64]) -> Option<Vec<(i64, i64)>> {
         }
         let cur_first = fi as i64 - 1;
         let cur_second = si as i64 - 1;
-        let next_value = if chose_first { first[fi - 1] } else { second[si - 1] };
+        let next_value = if chose_first {
+            first[fi - 1]
+        } else {
+            second[si - 1]
+        };
         if !(last_value >= next_value - EPSILON) {
             first_indices.push(cur_first);
             second_indices.push(cur_second);
@@ -276,7 +304,11 @@ fn merge(first: &[f64], second: &[f64]) -> Option<Vec<(i64, i64)>> {
         }
     }
     let result_length = result.len().max(1);
-    Some((0..result_length - 1).map(|i| (first_indices[i], second_indices[i])).collect())
+    Some(
+        (0..result_length - 1)
+            .map(|i| (first_indices[i], second_indices[i]))
+            .collect(),
+    )
 }
 
 #[cfg(test)]
@@ -284,11 +316,19 @@ mod tests {
     use super::*;
 
     fn cube() -> Shape {
-        Shape::new([vec![0.0, 1.0], vec![0.0, 1.0], vec![0.0, 1.0]], vec![true], true)
+        Shape::new(
+            [vec![0.0, 1.0], vec![0.0, 1.0], vec![0.0, 1.0]],
+            vec![true],
+            true,
+        )
     }
 
     fn slab() -> Shape {
-        Shape::new([vec![0.0, 1.0], vec![0.0, 0.5], vec![0.0, 1.0]], vec![true], false)
+        Shape::new(
+            [vec![0.0, 1.0], vec![0.0, 0.5], vec![0.0, 1.0]],
+            vec![true],
+            false,
+        )
     }
 
     #[test]

@@ -51,7 +51,11 @@ fn java_hex_digest(mut digest: [u8; 20]) -> String {
     let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
     let trimmed = hex.trim_start_matches('0');
     let trimmed = if trimmed.is_empty() { "0" } else { trimmed };
-    if negative { format!("-{trimmed}") } else { trimmed.to_owned() }
+    if negative {
+        format!("-{trimmed}")
+    } else {
+        trimmed.to_owned()
+    }
 }
 
 /// `UUIDUtil.createOfflinePlayerUUID`: `UUID.nameUUIDFromBytes` of
@@ -74,14 +78,23 @@ mod tests {
     #[test]
     fn java_style_digests() {
         // Well-known examples of Minecraft's signed SHA-1 hex.
-        assert_eq!(sha1_hex("Notch"), "4ed1f46bbe04bc756bcb17c0c7ce3e4632f06a48");
-        assert_eq!(sha1_hex("jeb_"), "-7c9d5b0044c130109a5d7b5fb5c317c02b4e28c1");
+        assert_eq!(
+            sha1_hex("Notch"),
+            "4ed1f46bbe04bc756bcb17c0c7ce3e4632f06a48"
+        );
+        assert_eq!(
+            sha1_hex("jeb_"),
+            "-7c9d5b0044c130109a5d7b5fb5c317c02b4e28c1"
+        );
         assert_eq!(sha1_hex("simon"), "88e16a1019277b15d58faf0541e11910eb756f6");
     }
 
     #[test]
     fn offline_uuids() {
         // Matches what offline-mode servers assign.
-        assert_eq!(offline_uuid("Notch").to_string(), "b50ad385-829d-3141-a216-7e7d7539ba7f");
+        assert_eq!(
+            offline_uuid("Notch").to_string(),
+            "b50ad385-829d-3141-a216-7e7d7539ba7f"
+        );
     }
 }

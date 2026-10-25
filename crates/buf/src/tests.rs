@@ -33,9 +33,18 @@ fn var_int_matches_protocol_examples() {
 
 #[test]
 fn var_long_matches_protocol_examples() {
-    assert_eq!(roundtrip(VarLong(i64::MAX)), [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f]);
-    assert_eq!(roundtrip(VarLong(-1)), [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01]);
-    assert_eq!(roundtrip(VarLong(i64::MIN)), [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01]);
+    assert_eq!(
+        roundtrip(VarLong(i64::MAX)),
+        [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f]
+    );
+    assert_eq!(
+        roundtrip(VarLong(-1)),
+        [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01]
+    );
+    assert_eq!(
+        roundtrip(VarLong(i64::MIN)),
+        [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01]
+    );
 }
 
 #[test]
@@ -53,7 +62,10 @@ fn strings() {
     let long = "a".repeat(17);
     let buf = to_bytes(&long);
     let mut slice = buf.as_slice();
-    assert!(matches!(BoundedString::<16>::decode(&mut slice), Err(DecodeError::StringTooLong { .. })));
+    assert!(matches!(
+        BoundedString::<16>::decode(&mut slice),
+        Err(DecodeError::StringTooLong { .. })
+    ));
 }
 
 #[test]
@@ -61,7 +73,10 @@ fn uuid_is_two_big_endian_longs() {
     let id = Uuid::parse_str("069a79f4-44e9-4726-a5be-fca90e38aaf5").unwrap();
     assert_eq!(
         roundtrip(id),
-        [0x06, 0x9a, 0x79, 0xf4, 0x44, 0xe9, 0x47, 0x26, 0xa5, 0xbe, 0xfc, 0xa9, 0x0e, 0x38, 0xaa, 0xf5]
+        [
+            0x06, 0x9a, 0x79, 0xf4, 0x44, 0xe9, 0x47, 0x26, 0xa5, 0xbe, 0xfc, 0xa9, 0x0e, 0x38,
+            0xaa, 0xf5
+        ]
     );
 }
 
@@ -99,7 +114,13 @@ impl Decode for (f64, f64, f64) {
 
 #[test]
 fn derive_struct() {
-    let bytes = roundtrip(Example { id: 300, name: "a".into(), pos: (1.0, 2.0, 3.0), ids: vec![1, 128], maybe: None });
+    let bytes = roundtrip(Example {
+        id: 300,
+        name: "a".into(),
+        pos: (1.0, 2.0, 3.0),
+        ids: vec![1, 128],
+        maybe: None,
+    });
     assert_eq!(&bytes[..2], &[0xac, 0x02]);
     assert_eq!(*bytes.last().unwrap(), 0);
 }
@@ -120,7 +141,10 @@ enum Hand {
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 enum Action {
-    Start { #[var] sequence: i32 },
+    Start {
+        #[var]
+        sequence: i32,
+    },
     Stop(u8),
     Nothing,
 }
@@ -137,6 +161,9 @@ fn derive_enums() {
     let mut buf: &[u8] = &[7];
     assert_eq!(
         Intent::decode(&mut buf),
-        Err(DecodeError::InvalidDiscriminant { ty: "Intent", value: 7 })
+        Err(DecodeError::InvalidDiscriminant {
+            ty: "Intent",
+            value: 7
+        })
     );
 }

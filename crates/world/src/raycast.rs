@@ -22,8 +22,14 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub const VALUES: [Direction; 6] =
-        [Direction::Down, Direction::Up, Direction::North, Direction::South, Direction::West, Direction::East];
+    pub const VALUES: [Direction; 6] = [
+        Direction::Down,
+        Direction::Up,
+        Direction::North,
+        Direction::South,
+        Direction::West,
+        Direction::East,
+    ];
 
     pub fn normal(self) -> (i32, i32, i32) {
         match self {
@@ -99,7 +105,13 @@ fn clip_point(
     let s = (point - from_a) / da;
     let pb = from_b + s * db;
     let pc = from_c + s * dc;
-    if 0.0 < s && s < *scale && min_b - EPSILON < pb && pb < max_b + EPSILON && min_c - EPSILON < pc && pc < max_c + EPSILON {
+    if 0.0 < s
+        && s < *scale
+        && min_b - EPSILON < pb
+        && pb < max_b + EPSILON
+        && min_c - EPSILON < pc
+        && pc < max_c + EPSILON
+    {
         *scale = s;
         Some(new_direction)
     } else {
@@ -119,19 +131,109 @@ pub fn box_entry(
 ) -> Option<Direction> {
     let [dx, dy, dz] = d;
     if dx > EPSILON {
-        direction = clip_point(scale, direction, dx, dy, dz, min[0], min[1], max[1], min[2], max[2], Direction::West, from[0], from[1], from[2]);
+        direction = clip_point(
+            scale,
+            direction,
+            dx,
+            dy,
+            dz,
+            min[0],
+            min[1],
+            max[1],
+            min[2],
+            max[2],
+            Direction::West,
+            from[0],
+            from[1],
+            from[2],
+        );
     } else if dx < -EPSILON {
-        direction = clip_point(scale, direction, dx, dy, dz, max[0], min[1], max[1], min[2], max[2], Direction::East, from[0], from[1], from[2]);
+        direction = clip_point(
+            scale,
+            direction,
+            dx,
+            dy,
+            dz,
+            max[0],
+            min[1],
+            max[1],
+            min[2],
+            max[2],
+            Direction::East,
+            from[0],
+            from[1],
+            from[2],
+        );
     }
     if dy > EPSILON {
-        direction = clip_point(scale, direction, dy, dz, dx, min[1], min[2], max[2], min[0], max[0], Direction::Down, from[1], from[2], from[0]);
+        direction = clip_point(
+            scale,
+            direction,
+            dy,
+            dz,
+            dx,
+            min[1],
+            min[2],
+            max[2],
+            min[0],
+            max[0],
+            Direction::Down,
+            from[1],
+            from[2],
+            from[0],
+        );
     } else if dy < -EPSILON {
-        direction = clip_point(scale, direction, dy, dz, dx, max[1], min[2], max[2], min[0], max[0], Direction::Up, from[1], from[2], from[0]);
+        direction = clip_point(
+            scale,
+            direction,
+            dy,
+            dz,
+            dx,
+            max[1],
+            min[2],
+            max[2],
+            min[0],
+            max[0],
+            Direction::Up,
+            from[1],
+            from[2],
+            from[0],
+        );
     }
     if dz > EPSILON {
-        direction = clip_point(scale, direction, dz, dx, dy, min[2], min[0], max[0], min[1], max[1], Direction::North, from[2], from[0], from[1]);
+        direction = clip_point(
+            scale,
+            direction,
+            dz,
+            dx,
+            dy,
+            min[2],
+            min[0],
+            max[0],
+            min[1],
+            max[1],
+            Direction::North,
+            from[2],
+            from[0],
+            from[1],
+        );
     } else if dz < -EPSILON {
-        direction = clip_point(scale, direction, dz, dx, dy, max[2], min[0], max[0], min[1], max[1], Direction::South, from[2], from[0], from[1]);
+        direction = clip_point(
+            scale,
+            direction,
+            dz,
+            dx,
+            dy,
+            max[2],
+            min[0],
+            max[0],
+            min[1],
+            max[1],
+            Direction::South,
+            from[2],
+            from[0],
+            from[1],
+        );
     }
     direction
 }
@@ -144,16 +246,34 @@ impl Shape {
             return None;
         }
         let offset = [pos.0 as f64, pos.1 as f64, pos.2 as f64];
-        let test = [from[0] + d[0] * 0.001, from[1] + d[1] * 0.001, from[2] + d[2] * 0.001];
-        if self.contains_point([test[0] - offset[0], test[1] - offset[1], test[2] - offset[2]]) {
+        let test = [
+            from[0] + d[0] * 0.001,
+            from[1] + d[1] * 0.001,
+            from[2] + d[2] * 0.001,
+        ];
+        if self.contains_point([
+            test[0] - offset[0],
+            test[1] - offset[1],
+            test[2] - offset[2],
+        ]) {
             let direction = Direction::approximate_nearest(d[0], d[1], d[2]).opposite();
-            return Some(BlockHit { pos, location: test, direction, inside: true, miss: false });
+            return Some(BlockHit {
+                pos,
+                location: test,
+                direction,
+                inside: true,
+                miss: false,
+            });
         }
         // AABB.clip over toAabbs(). Vanilla merges neighbouring cells into
         // larger boxes first; cell by cell finds the same entry point.
         let mut scale = 1.0;
         let mut direction = None;
-        let (xs, ys, zs) = (self.coords(Axis::X), self.coords(Axis::Y), self.coords(Axis::Z));
+        let (xs, ys, zs) = (
+            self.coords(Axis::X),
+            self.coords(Axis::Y),
+            self.coords(Axis::Z),
+        );
         for x in 0..self.size(Axis::X) {
             for y in 0..self.size(Axis::Y) {
                 for z in 0..self.size(Axis::Z) {
@@ -161,14 +281,28 @@ impl Shape {
                         continue;
                     }
                     let min = [xs[x] + offset[0], ys[y] + offset[1], zs[z] + offset[2]];
-                    let max = [xs[x + 1] + offset[0], ys[y + 1] + offset[1], zs[z + 1] + offset[2]];
+                    let max = [
+                        xs[x + 1] + offset[0],
+                        ys[y + 1] + offset[1],
+                        zs[z + 1] + offset[2],
+                    ];
                     direction = box_entry(min, max, from, &mut scale, direction, d);
                 }
             }
         }
         let direction = direction?;
-        let location = [from[0] + scale * d[0], from[1] + scale * d[1], from[2] + scale * d[2]];
-        Some(BlockHit { pos, location, direction, inside: false, miss: false })
+        let location = [
+            from[0] + scale * d[0],
+            from[1] + scale * d[1],
+            from[2] + scale * d[2],
+        ];
+        Some(BlockHit {
+            pos,
+            location,
+            direction,
+            inside: false,
+            miss: false,
+        })
     }
 }
 
@@ -206,7 +340,11 @@ fn sign(v: f64) -> i32 {
 
 /// `BlockGetter.traverseBlocks`: the blocks a segment passes through, in
 /// order, until `visit` returns something.
-pub fn traverse_blocks<T>(from: [f64; 3], to: [f64; 3], mut visit: impl FnMut((i32, i32, i32)) -> Option<T>) -> Option<T> {
+pub fn traverse_blocks<T>(
+    from: [f64; 3],
+    to: [f64; 3],
+    mut visit: impl FnMut((i32, i32, i32)) -> Option<T>,
+) -> Option<T> {
     if from == to {
         return None;
     }
@@ -225,9 +363,24 @@ pub fn traverse_blocks<T>(from: [f64; 3], to: [f64; 3], mut visit: impl FnMut((i
     let t_delta_x = if sx == 0 { f64::MAX } else { sx as f64 / dx };
     let t_delta_y = if sy == 0 { f64::MAX } else { sy as f64 / dy };
     let t_delta_z = if sz == 0 { f64::MAX } else { sz as f64 / dz };
-    let mut t_x = t_delta_x * if sx > 0 { 1.0 - frac(from_x) } else { frac(from_x) };
-    let mut t_y = t_delta_y * if sy > 0 { 1.0 - frac(from_y) } else { frac(from_y) };
-    let mut t_z = t_delta_z * if sz > 0 { 1.0 - frac(from_z) } else { frac(from_z) };
+    let mut t_x = t_delta_x
+        * if sx > 0 {
+            1.0 - frac(from_x)
+        } else {
+            frac(from_x)
+        };
+    let mut t_y = t_delta_y
+        * if sy > 0 {
+            1.0 - frac(from_y)
+        } else {
+            frac(from_y)
+        };
+    let mut t_z = t_delta_z
+        * if sz > 0 {
+            1.0 - frac(from_z)
+        } else {
+            frac(from_z)
+        };
     while t_x <= 1.0 || t_y <= 1.0 || t_z <= 1.0 {
         if t_x < t_y {
             if t_x < t_z {
@@ -260,7 +413,10 @@ pub fn clip(world: &World, from: [f64; 3], to: [f64; 3]) -> BlockHit {
         let state = world.block_state_or_air(pos.0, pos.1, pos.2);
         let mut hit = registry.outline_shape(state)?.clip(from, to, pos)?;
         // clipWithInteractionOverride
-        if let Some(inner) = registry.interaction_shape(state).and_then(|s| s.clip(from, to, pos)) {
+        if let Some(inner) = registry
+            .interaction_shape(state)
+            .and_then(|s| s.clip(from, to, pos))
+        {
             if distance_sqr(inner.location, from) < distance_sqr(hit.location, from) {
                 hit.direction = inner.direction;
             }
@@ -268,8 +424,15 @@ pub fn clip(world: &World, from: [f64; 3], to: [f64; 3]) -> BlockHit {
         Some(hit)
     });
     hit.unwrap_or_else(|| {
-        let direction = Direction::approximate_nearest(from[0] - to[0], from[1] - to[1], from[2] - to[2]);
-        BlockHit { pos: (floor(to[0]), floor(to[1]), floor(to[2])), location: to, direction, inside: false, miss: true }
+        let direction =
+            Direction::approximate_nearest(from[0] - to[0], from[1] - to[1], from[2] - to[2]);
+        BlockHit {
+            pos: (floor(to[0]), floor(to[1]), floor(to[2])),
+            location: to,
+            direction,
+            inside: false,
+            miss: true,
+        }
     })
 }
 
@@ -291,7 +454,10 @@ pub fn fall_damage_resetting(world: &World, tags: &Tags, from: [f64; 3], to: [f6
         let state_id = world.block_state_or_air(x, y, z);
         let block = registry.block_of(state_id);
         let resetting_block = tags.block_is("minecraft:fall_damage_resetting", block.id)
-            || matches!(block.name.as_str(), "minecraft:end_gateway" | "minecraft:end_portal");
+            || matches!(
+                block.name.as_str(),
+                "minecraft:end_gateway" | "minecraft:end_portal"
+            );
         if resetting_block && full_block_shape().clip(from, to, (x, y, z)).is_some() {
             return Some(());
         }

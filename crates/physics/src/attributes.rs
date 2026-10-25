@@ -33,7 +33,12 @@ pub struct Instance {
 
 impl Instance {
     pub fn new(base: f64, min: f64, max: f64) -> Self {
-        Self { base, min, max, modifiers: Default::default() }
+        Self {
+            base,
+            min,
+            max,
+            modifiers: Default::default(),
+        }
     }
 
     /// `AttributeInstance.calculateValue` then `RangedAttribute.sanitizeValue`.
@@ -149,7 +154,12 @@ impl Attributes {
 
     /// Applies a `ClientboundUpdateAttributesPacket` snapshot: new base,
     /// all modifiers replaced (`handleUpdateAttributes`).
-    pub fn apply_snapshot(&mut self, name: &str, base: f64, modifiers: &[(String, f64, Operation)]) {
+    pub fn apply_snapshot(
+        &mut self,
+        name: &str,
+        base: f64,
+        modifiers: &[(String, f64, Operation)],
+    ) {
         if let Some(instance) = self.instances.get_mut(name) {
             instance.base = base;
             instance.remove_modifiers();

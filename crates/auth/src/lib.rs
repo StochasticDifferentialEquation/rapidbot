@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 use uuid::Uuid;
 
-pub use cache::{CachedMsa, CachedMinecraft, TokenCache};
+pub use cache::{CachedMinecraft, CachedMsa, TokenCache};
 pub use microsoft::DeviceCode;
 pub use minecraft::{ChatKeys, JoinError, join_server};
 
@@ -66,7 +66,10 @@ pub struct Authenticator {
 }
 
 fn now_secs() -> i64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
 }
 
 impl Authenticator {
@@ -89,7 +92,10 @@ impl Authenticator {
 
     /// Returns a valid account, refreshing or re-authenticating as needed.
     /// `on_device_code` is called if the user has to sign in in a browser.
-    pub async fn login(&mut self, on_device_code: impl Fn(&DeviceCode)) -> Result<MinecraftAccount, AuthError> {
+    pub async fn login(
+        &mut self,
+        on_device_code: impl Fn(&DeviceCode),
+    ) -> Result<MinecraftAccount, AuthError> {
         let now = now_secs();
         let minecraft = match &self.cache.minecraft {
             Some(mc) if mc.expires_at - 300 > now => {
@@ -100,7 +106,8 @@ impl Authenticator {
                 let msa = self.msa_token(&on_device_code).await?;
                 let user = xbox::user_token(&self.http, &msa).await?;
                 let xsts = xbox::xsts_token(&self.http, &user.token).await?;
-                let (access_token, expires_in) = minecraft::login_with_xbox(&self.http, &xsts.uhs, &xsts.token).await?;
+                let (access_token, expires_in) =
+                    minecraft::login_with_xbox(&self.http, &xsts.uhs, &xsts.token).await?;
                 let profile = minecraft::profile(&self.http, &access_token).await?;
                 info!(name = %profile.name, "Minecraft login complete");
                 let mc = CachedMinecraft {
@@ -124,7 +131,10 @@ impl Authenticator {
         })
     }
 
-    async fn msa_token(&mut self, on_device_code: &impl Fn(&DeviceCode)) -> Result<String, AuthError> {
+    async fn msa_token(
+        &mut self,
+        on_device_code: &impl Fn(&DeviceCode),
+    ) -> Result<String, AuthError> {
         let now = now_secs();
         if let Some(msa) = &self.cache.msa {
             if msa.expires_at - 300 > now {
@@ -139,7 +149,8 @@ impl Authenticator {
                 Err(e) => debug!("refresh failed, falling back to device code: {e}"),
             }
         }
-        let fresh = microsoft::device_code_login(&self.http, &self.client_id, on_device_code).await?;
+        let fresh =
+            microsoft::device_code_login(&self.http, &self.client_id, on_device_code).await?;
         self.cache.msa = Some(fresh.clone());
         self.cache.save(&self.cache_path)?;
         Ok(fresh.access_token)
@@ -163,7 +174,11 @@ impl Authenticator {
             }
             Err(e) => {
                 tracing::warn!("could not fetch chat signing keys: {e}");
-                Ok(self.cache.chat_keys.clone().filter(|k| k.expires_at > now_ms))
+                Ok(self
+                    .cache
+                    .chat_keys
+                    .clone()
+                    .filter(|k| k.expires_at > now_ms))
             }
         }
     }

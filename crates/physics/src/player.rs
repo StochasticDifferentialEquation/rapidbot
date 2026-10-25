@@ -87,7 +87,14 @@ pub struct Abilities {
 
 impl Default for Abilities {
     fn default() -> Self {
-        Self { invulnerable: false, flying: false, may_fly: false, instabuild: false, flying_speed: 0.05, walking_speed: 0.1 }
+        Self {
+            invulnerable: false,
+            flying: false,
+            may_fly: false,
+            instabuild: false,
+            flying_speed: 0.05,
+            walking_speed: 0.1,
+        }
     }
 }
 
@@ -272,7 +279,11 @@ impl Player {
     }
 
     pub fn eye_position(&self) -> Vec3 {
-        Vec3::new(self.pos.x, self.pos.y + self.pose.eye_height() as f64, self.pos.z)
+        Vec3::new(
+            self.pos.x,
+            self.pos.y + self.pose.eye_height() as f64,
+            self.pos.z,
+        )
     }
 
     /// `Entity.turn(xo, yo)`: what `MouseHandler.turnPlayer` calls with the
@@ -287,7 +298,11 @@ impl Player {
 
     /// `Entity.lookAt(anchor, pos)` from a `player_look_at` packet.
     pub fn look_at(&mut self, from_eyes: bool, target: Vec3) {
-        let from = if from_eyes { self.eye_position() } else { self.pos };
+        let from = if from_eyes {
+            self.eye_position()
+        } else {
+            self.pos
+        };
         let xd = target.x - from.x;
         let yd = target.y - from.y;
         let zd = target.z - from.z;
@@ -318,7 +333,8 @@ impl Player {
     fn is_moving_slowly(&self) -> bool {
         // isCrouching() || isVisuallyCrawling(). LivingEntity counts a
         // leftover gliding pose (no room to stand up) as swimming.
-        let visually_swimming = self.pose == Pose::Swimming || !self.fall_flying && self.pose == Pose::FallFlying;
+        let visually_swimming =
+            self.pose == Pose::Swimming || !self.fall_flying && self.pose == Pose::FallFlying;
         self.crouching || (visually_swimming && !self.in_water)
     }
 
@@ -368,7 +384,11 @@ impl Player {
         let real_y = -self.y_rot * DEG_TO_RAD;
         let (y_cos, y_sin) = (math::cos(real_y as f64), math::sin(real_y as f64));
         let (x_cos, x_sin) = (math::cos(real_x as f64), math::sin(real_x as f64));
-        Vec3::new((y_sin * x_cos) as f64, (-x_sin) as f64, (y_cos * x_cos) as f64)
+        Vec3::new(
+            (y_sin * x_cos) as f64,
+            (-x_sin) as f64,
+            (y_cos * x_cos) as f64,
+        )
     }
 
     /// `Entity.baseTick`: fluid state for this tick, currents, swimming.
@@ -384,7 +404,8 @@ impl Player {
             let (bx, by, bz) = self.block_position();
             self.sprinting
                 && self.under_water()
-                && fluid::fluid_at(ctx.world, bx, by, bz).is_some_and(|f| f.kind == FluidKind::Water)
+                && fluid::fluid_at(ctx.world, bx, by, bz)
+                    .is_some_and(|f| f.kind == FluidKind::Water)
         };
         if self.in_lava() {
             self.fall_distance *= 0.5;
@@ -401,8 +422,16 @@ impl Player {
         let mut currents = [(Vec3::ZERO, 0u32, 0.0f64); 2];
 
         let bbox = self.bb.deflate(0.001, 0.001, 0.001);
-        let (x0, y0, z0) = (math::floor(bbox.min_x), math::floor(bbox.min_y), math::floor(bbox.min_z));
-        let (x1, y1, z1) = (bbox.max_x.ceil() as i32 - 1, bbox.max_y.ceil() as i32 - 1, bbox.max_z.ceil() as i32 - 1);
+        let (x0, y0, z0) = (
+            math::floor(bbox.min_x),
+            math::floor(bbox.min_y),
+            math::floor(bbox.min_z),
+        );
+        let (x1, y1, z1) = (
+            bbox.max_x.ceil() as i32 - 1,
+            bbox.max_y.ceil() as i32 - 1,
+            bbox.max_z.ceil() as i32 - 1,
+        );
         // hasFluidAndLoaded: every chunk around the box must be loaded.
         let loaded = ((x0 - 1) >> 4..=(x1 + 1) >> 4)
             .all(|cx| ((z0 - 1) >> 4..=(z1 + 1) >> 4).all(|cz| ctx.world.has_chunk(cx, cz)));
@@ -413,14 +442,18 @@ impl Player {
             for x in x0..=x1 {
                 for y in y0..=y1 {
                     for z in z0..=z1 {
-                        let Some(f) = fluid::fluid_at(ctx.world, x, y, z) else { continue };
+                        let Some(f) = fluid::fluid_at(ctx.world, x, y, z) else {
+                            continue;
+                        };
                         let bottom = y as f64;
                         let top = bottom + fluid::height(ctx.world, f, x, y, z) as f64;
                         if top < bbox.min_y {
                             continue;
                         }
-                        if f.kind == FluidKind::Water && x == eye_x && z == eye_z && eye_y >= bottom {
-                            let camera_top = bottom + fluid::height_for_camera(ctx.world, f, x, y, z) as f64;
+                        if f.kind == FluidKind::Water && x == eye_x && z == eye_z && eye_y >= bottom
+                        {
+                            let camera_top =
+                                bottom + fluid::height_for_camera(ctx.world, f, x, y, z) as f64;
                             if eye_y <= camera_top {
                                 self.eye_in_water = true;
                             }
@@ -454,7 +487,14 @@ impl Player {
             self.apply_current(currents[0], 0.014);
         }
         if self.lava_height > 0.0 {
-            self.apply_current(currents[1], if self.fast_lava { 0.007 } else { 0.0023333333333333335 });
+            self.apply_current(
+                currents[1],
+                if self.fast_lava {
+                    0.007
+                } else {
+                    0.0023333333333333335
+                },
+            );
         }
     }
 
@@ -465,7 +505,10 @@ impl Player {
         }
         let mut impulse = accumulated.scale(1.0 / count as f64).scale(scale);
         let old = self.delta_movement;
-        if old.x.abs() < 0.003 && old.z.abs() < 0.003 && impulse.length_sqr().sqrt() < 0.0045000000000000005 {
+        if old.x.abs() < 0.003
+            && old.z.abs() < 0.003
+            && impulse.length_sqr().sqrt() < 0.0045000000000000005
+        {
             impulse = impulse.normalize().scale(0.0045000000000000005);
         }
         self.delta_movement = old.add(impulse);
@@ -487,10 +530,12 @@ impl Player {
         }
         // trapdoorUsableAsLadder: an open trapdoor over a ladder facing the
         // same way.
-        if block.name.ends_with("_trapdoor") && ctx.registry.property(state, "open") == Some("true") {
+        if block.name.ends_with("_trapdoor") && ctx.registry.property(state, "open") == Some("true")
+        {
             let below = ctx.world.block_state_or_air(x, y - 1, z);
             return ctx.registry.block_of(below).name == "minecraft:ladder"
-                && ctx.registry.property(below, "facing") == ctx.registry.property(state, "facing");
+                && ctx.registry.property(below, "facing")
+                    == ctx.registry.property(state, "facing");
         }
         false
     }
@@ -502,7 +547,11 @@ impl Player {
     /// `LocalPlayer.tick` → `Player.tick` → `LivingEntity.tick`, movement
     /// parts, for a player whose client has loaded.
     pub fn tick(&mut self, world: &World, tags: &Tags) {
-        let ctx = Ctx { world, registry: Registry::get(), tags };
+        let ctx = Ctx {
+            world,
+            registry: Registry::get(),
+            tags,
+        };
 
         // Player.tick
         if self.spectator {
@@ -540,7 +589,15 @@ impl Player {
 
         // KeyboardInput.tick
         self.key_presses = self.held_keys;
-        let impulse = |pos: bool, neg: bool| if pos == neg { 0.0 } else if pos { 1.0 } else { -1.0f32 };
+        let impulse = |pos: bool, neg: bool| {
+            if pos == neg {
+                0.0
+            } else if pos {
+                1.0
+            } else {
+                -1.0f32
+            }
+        };
         let forward = impulse(self.key_presses.forward, self.key_presses.backward);
         let left = impulse(self.key_presses.left, self.key_presses.right);
         self.move_vector = vec2_normalized(left, forward);
@@ -563,7 +620,11 @@ impl Player {
         }
 
         if self.sprinting {
-            let stop = if self.swimming { self.should_stop_swim_sprinting() } else { self.should_stop_run_sprinting() };
+            let stop = if self.swimming {
+                self.should_stop_swim_sprinting()
+            } else {
+                self.should_stop_run_sprinting()
+            };
             if stop {
                 self.set_sprinting(false);
             }
@@ -609,7 +670,9 @@ impl Player {
 
         if self.in_water && self.key_presses.shift && !self.abilities.flying {
             // goDownInWater
-            self.delta_movement = self.delta_movement.add(Vec3::new(0.0, -0.04f32 as f64, 0.0));
+            self.delta_movement = self
+                .delta_movement
+                .add(Vec3::new(0.0, -0.04f32 as f64, 0.0));
         }
 
         // Flying up and down.
@@ -666,8 +729,10 @@ impl Player {
 
     /// `Player.tryToStartFallFlying` with `canGlide`.
     fn try_to_start_fall_flying(&mut self) -> bool {
-        let can_glide =
-            !self.abilities.flying && !self.on_ground && self.effects.levitation.is_none() && self.has_elytra;
+        let can_glide = !self.abilities.flying
+            && !self.on_ground
+            && self.effects.levitation.is_none()
+            && self.has_elytra;
         if !self.fall_flying && can_glide && !self.in_liquid() {
             self.fall_flying = true;
             true
@@ -708,19 +773,30 @@ impl Player {
 
         if self.jumping && !self.abilities.flying {
             let in_lava = self.in_lava();
-            let fluid_height = if in_lava { self.lava_height } else { self.water_height };
+            let fluid_height = if in_lava {
+                self.lava_height
+            } else {
+                self.water_height
+            };
             let in_water_with_height = self.in_water && fluid_height > 0.0;
             // getFluidJumpThreshold
-            let threshold = if (self.pose.eye_height() as f64) < 0.4 { 0.0 } else { 0.4 };
+            let threshold = if (self.pose.eye_height() as f64) < 0.4 {
+                0.0
+            } else {
+                0.4
+            };
             if !in_water_with_height || self.on_ground && !(fluid_height > threshold) {
                 if !in_lava || self.on_ground && self.lava_height <= threshold {
-                    if (self.on_ground || in_water_with_height && fluid_height <= threshold) && self.no_jump_delay == 0 {
+                    if (self.on_ground || in_water_with_height && fluid_height <= threshold)
+                        && self.no_jump_delay == 0
+                    {
                         self.jump_from_ground(ctx);
                         self.no_jump_delay = 10;
                     }
                 } else {
                     // jumpInLiquid(LAVA)
-                    self.delta_movement = self.delta_movement.add(Vec3::new(0.0, 0.04f32 as f64, 0.0));
+                    self.delta_movement =
+                        self.delta_movement.add(Vec3::new(0.0, 0.04f32 as f64, 0.0));
                 }
             } else {
                 // jumpInLiquid(WATER)
@@ -775,9 +851,17 @@ impl Player {
             match original {
                 Some(original) if delta.length_sqr() > 0.0 => {
                     let steps = if original.x.abs() < original.z.abs() {
-                        [(0.0, delta.y, 0.0), (0.0, 0.0, delta.z), (delta.x, 0.0, 0.0)]
+                        [
+                            (0.0, delta.y, 0.0),
+                            (0.0, 0.0, delta.z),
+                            (delta.x, 0.0, 0.0),
+                        ]
                     } else {
-                        [(0.0, delta.y, 0.0), (delta.x, 0.0, 0.0), (0.0, 0.0, delta.z)]
+                        [
+                            (0.0, delta.y, 0.0),
+                            (delta.x, 0.0, 0.0),
+                            (0.0, 0.0, delta.z),
+                        ]
                     };
                     let mut pos = from;
                     for (x, y, z) in steps {
@@ -798,7 +882,13 @@ impl Player {
     /// touches at either end or sweeps through; for a move along one axis
     /// that is everything inside the hull of the two boxes. (Vanilla's cap
     /// of 16 steps only matters at speeds a player on foot never reaches.)
-    fn check_inside_blocks(&mut self, ctx: &Ctx<'_>, from: Vec3, to: Vec3, visited: &mut Vec<(i32, i32, i32)>) {
+    fn check_inside_blocks(
+        &mut self,
+        ctx: &Ctx<'_>,
+        from: Vec3,
+        to: Vec3,
+        visited: &mut Vec<(i32, i32, i32)>,
+    ) {
         let shrink = 1.0e-5f32 as f64;
         let at_target = make_bounding_box(self.pose, to).deflate(shrink, shrink, shrink);
         let travel = to.add(from.scale(-1.0));
@@ -831,7 +921,14 @@ impl Player {
                     }
                     visited.push((x, y, z));
                     let is_precise = moved_far
-                        || at_target.intersects(x as f64, y as f64, z as f64, x as f64 + 1.0, y as f64 + 1.0, z as f64 + 1.0);
+                        || at_target.intersects(
+                            x as f64,
+                            y as f64,
+                            z as f64,
+                            x as f64 + 1.0,
+                            y as f64 + 1.0,
+                            z as f64 + 1.0,
+                        );
                     self.entity_inside(ctx, name, state, (x, y, z), is_precise);
                 }
             }
@@ -839,12 +936,22 @@ impl Player {
     }
 
     /// `Block.entityInside` for the blocks that push the player about.
-    fn entity_inside(&mut self, ctx: &Ctx<'_>, name: &str, state: u32, pos: (i32, i32, i32), is_precise: bool) {
+    fn entity_inside(
+        &mut self,
+        ctx: &Ctx<'_>,
+        name: &str,
+        state: u32,
+        pos: (i32, i32, i32),
+        is_precise: bool,
+    ) {
         match name {
             // WebBlock
             "minecraft:cobweb" => {
-                let multiplier =
-                    if self.effects.weaving { Vec3::new(0.5, 0.25, 0.5) } else { Vec3::new(0.25, 0.05f32 as f64, 0.25) };
+                let multiplier = if self.effects.weaving {
+                    Vec3::new(0.5, 0.25, 0.5)
+                } else {
+                    Vec3::new(0.25, 0.05f32 as f64, 0.25)
+                };
                 self.make_stuck_in_block(multiplier);
             }
             // SweetBerryBushBlock
@@ -884,8 +991,8 @@ impl Player {
                 if is_precise && !self.abilities.flying {
                     let drag_down = ctx.registry.property(state, "drag") == Some("true");
                     let above = ctx.world.block_state_or_air(pos.0, pos.1 + 1, pos.2);
-                    let nothing_above =
-                        ctx.registry.collision_shape(above).is_none() && ctx.registry.state(above).fluid.is_empty();
+                    let nothing_above = ctx.registry.collision_shape(above).is_none()
+                        && ctx.registry.state(above).fluid.is_empty();
                     let m = self.delta_movement;
                     let y = match (nothing_above, drag_down) {
                         (true, true) => rapidbot_world::aabb::java_max(-0.9, m.y - 0.03),
@@ -938,11 +1045,20 @@ impl Player {
     /// `LivingEntity.jumpFromGround`.
     fn jump_from_ground(&mut self, ctx: &Ctx<'_>) {
         // getJumpPower: strength * block factor + getJumpBoostPower().
-        let boost = self.effects.jump_boost.map_or(0.0, |amp| 0.1f32 * (amp as f32 + 1.0));
-        let jump_power = self.attributes.value(attributes::JUMP_STRENGTH) as f32 * self.block_jump_factor(ctx) + boost;
+        let boost = self
+            .effects
+            .jump_boost
+            .map_or(0.0, |amp| 0.1f32 * (amp as f32 + 1.0));
+        let jump_power = self.attributes.value(attributes::JUMP_STRENGTH) as f32
+            * self.block_jump_factor(ctx)
+            + boost;
         if jump_power > 1.0e-5 {
             let m = self.delta_movement;
-            self.delta_movement = Vec3::new(m.x, rapidbot_world::aabb::java_max(jump_power as f64, m.y), m.z);
+            self.delta_movement = Vec3::new(
+                m.x,
+                rapidbot_world::aabb::java_max(jump_power as f64, m.y),
+                m.z,
+            );
             if self.sprinting {
                 let angle = self.y_rot * DEG_TO_RAD;
                 self.delta_movement = self.delta_movement.add(Vec3::new(
@@ -959,8 +1075,15 @@ impl Player {
         if self.swimming {
             let look_y = self.look_angle().y;
             let multiplier = if look_y < -0.2 { 0.085 } else { 0.06 };
-            let above = (math::floor(self.pos.x), math::floor(self.pos.y + 1.0 - 0.1), math::floor(self.pos.z));
-            if look_y <= 0.0 || self.jumping || fluid::fluid_at(ctx.world, above.0, above.1, above.2).is_some() {
+            let above = (
+                math::floor(self.pos.x),
+                math::floor(self.pos.y + 1.0 - 0.1),
+                math::floor(self.pos.z),
+            );
+            if look_y <= 0.0
+                || self.jumping
+                || fluid::fluid_at(ctx.world, above.0, above.1, above.2).is_some()
+            {
                 let m = self.delta_movement;
                 self.delta_movement = m.add(Vec3::new(0.0, (look_y - m.y) * multiplier, 0.0));
             }
@@ -998,7 +1121,8 @@ impl Player {
             // travelInWater
             let mut slow_down: f32 = if self.sprinting { 0.9 } else { 0.8 };
             let mut speed: f32 = 0.02;
-            let mut water_walker = self.attributes.value(attributes::WATER_MOVEMENT_EFFICIENCY) as f32;
+            let mut water_walker =
+                self.attributes.value(attributes::WATER_MOVEMENT_EFFICIENCY) as f32;
             if !self.on_ground {
                 water_walker *= 0.5;
             }
@@ -1013,27 +1137,37 @@ impl Player {
                 movement = Vec3::new(movement.x, 0.2, movement.z);
             }
             movement = movement.multiply(slow_down as f64, 0.8f32 as f64, slow_down as f64);
-            self.delta_movement = self.fluid_falling_adjusted_movement(base_gravity, is_falling, movement);
+            self.delta_movement =
+                self.fluid_falling_adjusted_movement(base_gravity, is_falling, movement);
         } else {
             // travelInLava
             self.move_relative(0.02, input);
             self.move_self(ctx, self.delta_movement);
             // isInShallowFluid(LAVA)
-            let threshold = if (self.pose.eye_height() as f64) < 0.4 { 0.0 } else { 0.4 };
+            let threshold = if (self.pose.eye_height() as f64) < 0.4 {
+                0.0
+            } else {
+                0.4
+            };
             if self.lava_height <= threshold {
                 let m = self.delta_movement.multiply(0.5, 0.8f32 as f64, 0.5);
-                self.delta_movement = self.fluid_falling_adjusted_movement(base_gravity, is_falling, m);
+                self.delta_movement =
+                    self.fluid_falling_adjusted_movement(base_gravity, is_falling, m);
             } else {
                 self.delta_movement = self.delta_movement.scale(0.5);
             }
             if base_gravity != 0.0 {
-                self.delta_movement = self.delta_movement.add(Vec3::new(0.0, -base_gravity / 4.0, 0.0));
+                self.delta_movement =
+                    self.delta_movement
+                        .add(Vec3::new(0.0, -base_gravity / 4.0, 0.0));
             }
         }
         // jumpOutOfFluid
         let m = self.delta_movement;
         if self.horizontal_collision {
-            let moved = self.bb.move_by(m.x, m.y + 0.6f32 as f64 - self.pos.y + old_y, m.z);
+            let moved = self
+                .bb
+                .move_by(m.x, m.y + 0.6f32 as f64 - self.pos.y + old_y, m.z);
             if ctx.no_collision(&moved) && !fluid::contains_any_liquid(ctx.world, &moved) {
                 self.delta_movement = Vec3::new(m.x, 0.3f32 as f64, m.z);
             }
@@ -1041,7 +1175,12 @@ impl Player {
     }
 
     /// `LivingEntity.getFluidFallingAdjustedMovement`.
-    fn fluid_falling_adjusted_movement(&self, base_gravity: f64, is_falling: bool, movement: Vec3) -> Vec3 {
+    fn fluid_falling_adjusted_movement(
+        &self,
+        base_gravity: f64,
+        is_falling: bool,
+        movement: Vec3,
+    ) -> Vec3 {
         if base_gravity != 0.0 && !self.sprinting {
             let yd = if is_falling
                 && (movement.y - 0.005).abs() >= 0.003
@@ -1077,11 +1216,19 @@ impl Player {
         m = m.add(Vec3::new(0.0, gravity * (-1.0 + lift * 0.75), 0.0));
         if m.y < 0.0 && look_hor > 0.0 {
             let convert = m.y * -0.1 * lift;
-            m = m.add(Vec3::new(look.x * convert / look_hor, convert, look.z * convert / look_hor));
+            m = m.add(Vec3::new(
+                look.x * convert / look_hor,
+                convert,
+                look.z * convert / look_hor,
+            ));
         }
         if lean < 0.0 && look_hor > 0.0 {
             let convert = move_hor * (-math::sin(lean as f64)) as f64 * 0.04;
-            m = m.add(Vec3::new(-look.x * convert / look_hor, convert * 3.2, -look.z * convert / look_hor));
+            m = m.add(Vec3::new(
+                -look.x * convert / look_hor,
+                convert * 3.2,
+                -look.z * convert / look_hor,
+            ));
         }
         if look_hor > 0.0 {
             m = m.add(Vec3::new(
@@ -1099,7 +1246,10 @@ impl Player {
         let pos_below = self.block_pos_below_that_affects_my_movement(ctx);
         let block_friction = if self.on_ground {
             let friction = ctx.block_at(pos_below).friction;
-            compute_modified_friction(friction, self.attributes.value(attributes::FRICTION_MODIFIER) as f32)
+            compute_modified_friction(
+                friction,
+                self.attributes.value(attributes::FRICTION_MODIFIER) as f32,
+            )
         } else {
             1.0
         };
@@ -1116,12 +1266,19 @@ impl Player {
             let cap = 0.15f32 as f64;
             let mut yd = rapidbot_world::aabb::java_max(d.y, -cap);
             let (bx, by, bz) = self.block_position();
-            let in_scaffolding =
-                ctx.registry.block_of(ctx.world.block_state_or_air(bx, by, bz)).name == "minecraft:scaffolding";
+            let in_scaffolding = ctx
+                .registry
+                .block_of(ctx.world.block_state_or_air(bx, by, bz))
+                .name
+                == "minecraft:scaffolding";
             if yd < 0.0 && !in_scaffolding && self.is_shift_key_down() {
                 yd = 0.0;
             }
-            self.delta_movement = Vec3::new(math::clamp_f64(d.x, -cap, cap), yd, math::clamp_f64(d.z, -cap, cap));
+            self.delta_movement = Vec3::new(
+                math::clamp_f64(d.x, -cap, cap),
+                yd,
+                math::clamp_f64(d.z, -cap, cap),
+            );
         }
         self.move_self(ctx, self.delta_movement);
         let mut movement = self.delta_movement;
@@ -1178,7 +1335,11 @@ impl Player {
                 self.speed()
             }
         } else if self.abilities.flying {
-            if self.sprinting { self.abilities.flying_speed * 2.0 } else { self.abilities.flying_speed }
+            if self.sprinting {
+                self.abilities.flying_speed * 2.0
+            } else {
+                self.abilities.flying_speed
+            }
         } else if self.sprinting {
             0.025999999
         } else {
@@ -1192,11 +1353,20 @@ impl Player {
         if length < 1.0e-7 {
             return;
         }
-        let movement = if length > 1.0 { input.normalize() } else { input }.scale(speed as f64);
+        let movement = if length > 1.0 {
+            input.normalize()
+        } else {
+            input
+        }
+        .scale(speed as f64);
         let angle = self.y_rot * DEG_TO_RAD;
         let sin = math::sin(angle as f64) as f64;
         let cos = math::cos(angle as f64) as f64;
-        let delta = Vec3::new(movement.x * cos - movement.z * sin, movement.y, movement.z * cos + movement.x * sin);
+        let delta = Vec3::new(
+            movement.x * cos - movement.z * sin,
+            movement.y,
+            movement.z * cos + movement.x * sin,
+        );
         self.delta_movement = self.delta_movement.add(delta);
     }
 
@@ -1246,18 +1416,34 @@ impl Player {
         // The local player is authoritative, so this always runs.
         self.vertical_collision = delta.y != movement.y;
         self.vertical_collision_below = self.vertical_collision && delta.y < 0.0;
-        self.set_on_ground_with_movement(ctx, self.vertical_collision_below, self.horizontal_collision, movement);
+        self.set_on_ground_with_movement(
+            ctx,
+            self.vertical_collision_below,
+            self.horizontal_collision,
+            movement,
+        );
 
-        self.minor_horizontal_collision =
-            if self.horizontal_collision { self.is_horizontal_collision_minor(movement) } else { false };
+        self.minor_horizontal_collision = if self.horizontal_collision {
+            self.is_horizontal_collision_minor(movement)
+        } else {
+            false
+        };
 
         let effect_pos = self.on_pos(ctx, 0.2);
-        let effect_state = ctx.world.block_state_or_air(effect_pos.0, effect_pos.1, effect_pos.2);
+        let effect_state = ctx
+            .world
+            .block_state_or_air(effect_pos.0, effect_pos.1, effect_pos.2);
         self.check_fall_damage(movement.y, self.on_ground);
 
         let moved_vertically = delta.y.abs() > 0.0;
         if moved_vertically && self.vertical_collision || self.horizontal_collision {
-            self.restitute_movement_after_collisions(ctx, effect_state, x_collision, z_collision, movement);
+            self.restitute_movement_after_collisions(
+                ctx,
+                effect_state,
+                x_collision,
+                z_collision,
+                movement,
+            );
         }
 
         let factor = self.block_speed_factor(ctx) as f64;
@@ -1307,12 +1493,21 @@ impl Player {
             }
             let (gravity_compensation, effective_drag) = if restitution > 0.0 {
                 let portion = movement.y / current.y;
-                let air_drag = compute_modified_friction(0.98, self.attributes.value(attributes::AIR_DRAG_MODIFIER) as f32);
-                (portion * self.effective_gravity(), 1.0 + portion * (air_drag as f64 - 1.0))
+                let air_drag = compute_modified_friction(
+                    0.98,
+                    self.attributes.value(attributes::AIR_DRAG_MODIFIER) as f32,
+                );
+                (
+                    portion * self.effective_gravity(),
+                    1.0 + portion * (air_drag as f64 - 1.0),
+                )
             } else {
                 (0.0, 1.0)
             };
-            after = after.with(Axis::Y, (gravity_compensation - current.y) * effective_drag * restitution);
+            after = after.with(
+                Axis::Y,
+                (gravity_compensation - current.y) * effective_drag * restitution,
+            );
         }
         self.delta_movement = after;
     }
@@ -1337,7 +1532,10 @@ impl Player {
     /// `Player.maybeBackOffFromEdge`.
     fn maybe_back_off_from_edge(&self, ctx: &Ctx<'_>, delta: Vec3) -> Vec3 {
         let max_down_step = self.attributes.value(attributes::STEP_HEIGHT) as f32;
-        if self.abilities.flying || delta.y > 0.0 || !self.is_shift_key_down() || !self.is_above_ground(ctx, max_down_step)
+        if self.abilities.flying
+            || delta.y > 0.0
+            || !self.is_shift_key_down()
+            || !self.is_above_ground(ctx, max_down_step)
         {
             return delta;
         }
@@ -1414,16 +1612,32 @@ impl Player {
         let on_ground_after_collision = y_collision && movement.y < 0.0;
         let max_up_step = self.max_up_step();
 
-        if max_up_step > 0.0 && (on_ground_after_collision || self.on_ground) && (x_collision || z_collision) {
-            let grounded = if on_ground_after_collision { aabb.move_by(0.0, movement_step.y, 0.0) } else { aabb };
+        if max_up_step > 0.0
+            && (on_ground_after_collision || self.on_ground)
+            && (x_collision || z_collision)
+        {
+            let grounded = if on_ground_after_collision {
+                aabb.move_by(0.0, movement_step.y, 0.0)
+            } else {
+                aabb
+            };
             let mut step_up = grounded.expand_towards(movement.x, max_up_step as f64, movement.z);
             if !on_ground_after_collision {
                 step_up = step_up.expand_towards(0.0, -1.0e-5f32 as f64, 0.0);
             }
             let colliders = ctx.colliders(&step_up);
             let step_height_to_skip = movement_step.y as f32;
-            for candidate in collect_candidate_step_up_heights(&grounded, &colliders, max_up_step, step_height_to_skip) {
-                let step = collide_with_shapes(Vec3::new(movement.x, candidate as f64, movement.z), &grounded, &colliders);
+            for candidate in collect_candidate_step_up_heights(
+                &grounded,
+                &colliders,
+                max_up_step,
+                step_height_to_skip,
+            ) {
+                let step = collide_with_shapes(
+                    Vec3::new(movement.x, candidate as f64, movement.z),
+                    &grounded,
+                    &colliders,
+                );
                 if step.horizontal_distance_sqr() > movement_step.horizontal_distance_sqr() {
                     let distance_to_ground = aabb.min_y - grounded.min_y;
                     return step.subtract(0.0, distance_to_ground, 0.0);
@@ -1434,7 +1648,13 @@ impl Player {
     }
 
     /// `Entity.setOnGroundWithMovement` → `checkSupportingBlock`.
-    fn set_on_ground_with_movement(&mut self, ctx: &Ctx<'_>, on_ground: bool, horizontal: bool, movement: Vec3) {
+    fn set_on_ground_with_movement(
+        &mut self,
+        ctx: &Ctx<'_>,
+        on_ground: bool,
+        horizontal: bool,
+        movement: Vec3,
+    ) {
         self.on_ground = on_ground;
         self.horizontal_collision = horizontal;
         self.check_supporting_block(ctx, on_ground, Some(movement));
@@ -1448,12 +1668,20 @@ impl Player {
     fn check_supporting_block(&mut self, ctx: &Ctx<'_>, on_ground: bool, movement: Option<Vec3>) {
         if on_ground {
             let b = self.bb;
-            let test_area = Aabb::new(b.min_x, b.min_y - 1.0e-6, b.min_z, b.max_x, b.min_y, b.max_z);
+            let test_area = Aabb::new(
+                b.min_x,
+                b.min_y - 1.0e-6,
+                b.min_z,
+                b.max_x,
+                b.min_y,
+                b.max_z,
+            );
             let mut supporting = ctx.find_supporting_block(self.pos, &test_area);
             if supporting.is_some() || self.on_ground_no_blocks {
                 self.main_supporting_block = supporting;
             } else if let Some(m) = movement {
-                supporting = ctx.find_supporting_block(self.pos, &test_area.move_by(-m.x, 0.0, -m.z));
+                supporting =
+                    ctx.find_supporting_block(self.pos, &test_area.move_by(-m.x, 0.0, -m.z));
                 self.main_supporting_block = supporting;
             }
             self.on_ground_no_blocks = supporting.is_none();
@@ -1469,19 +1697,29 @@ impl Player {
             if !(offset > 1.0e-5) {
                 return support;
             }
-            let below = ctx.world.block_state_or_air(support.0, support.1, support.2);
+            let below = ctx
+                .world
+                .block_state_or_air(support.0, support.1, support.2);
             let block = ctx.registry.block_of(below);
             let is_fence = ctx.tags.block_is("minecraft:fences", block.id);
             let is_wall = ctx.tags.block_is("minecraft:walls", block.id);
             // `instanceof FenceGateBlock`: every fence gate is named so.
             let is_fence_gate = block.name.ends_with("_fence_gate");
             if (!(offset <= 0.5) || !is_fence) && !is_wall && !is_fence_gate {
-                (support.0, math::floor(self.pos.y - offset as f64), support.2)
+                (
+                    support.0,
+                    math::floor(self.pos.y - offset as f64),
+                    support.2,
+                )
             } else {
                 support
             }
         } else {
-            (math::floor(self.pos.x), math::floor(self.pos.y - offset as f64), math::floor(self.pos.z))
+            (
+                math::floor(self.pos.x),
+                math::floor(self.pos.y - offset as f64),
+                math::floor(self.pos.z),
+            )
         }
     }
 
@@ -1490,13 +1728,19 @@ impl Player {
     }
 
     fn block_position(&self) -> (i32, i32, i32) {
-        (math::floor(self.pos.x), math::floor(self.pos.y), math::floor(self.pos.z))
+        (
+            math::floor(self.pos.x),
+            math::floor(self.pos.y),
+            math::floor(self.pos.z),
+        )
     }
 
     /// `Entity.getBlockJumpFactor`.
     fn block_jump_factor(&self, ctx: &Ctx<'_>) -> f32 {
         let here = ctx.block_at(self.block_position()).jump_factor;
-        let below = ctx.block_at(self.block_pos_below_that_affects_my_movement(ctx)).jump_factor;
+        let below = ctx
+            .block_at(self.block_pos_below_that_affects_my_movement(ctx))
+            .jump_factor;
         if here as f64 == 1.0 { below } else { here }
     }
 
@@ -1510,7 +1754,8 @@ impl Player {
         let here = ctx.block_at(here_pos);
         let base = if here.name != "minecraft:water" && here.name != "minecraft:bubble_column" {
             if here.speed_factor as f64 == 1.0 {
-                ctx.block_at(self.block_pos_below_that_affects_my_movement(ctx)).speed_factor
+                ctx.block_at(self.block_pos_below_that_affects_my_movement(ctx))
+                    .speed_factor
             } else {
                 here.speed_factor
             }
@@ -1579,7 +1824,8 @@ impl Ctx<'_> {
     }
 
     fn block_at(&self, pos: (i32, i32, i32)) -> &'static rapidbot_world::registry::BlockInfo {
-        self.registry.block_of(self.world.block_state_or_air(pos.0, pos.1, pos.2))
+        self.registry
+            .block_of(self.world.block_state_or_air(pos.0, pos.1, pos.2))
     }
 
     /// `CollisionGetter.findSupportingBlock`: the nearest colliding block
@@ -1588,13 +1834,18 @@ impl Ctx<'_> {
         let mut main: Option<(i32, i32, i32)> = None;
         let mut main_distance = f64::MAX;
         for shape in self.colliders(bbox) {
-            let pos = (shape.offset[0] as i32, shape.offset[1] as i32, shape.offset[2] as i32);
+            let pos = (
+                shape.offset[0] as i32,
+                shape.offset[1] as i32,
+                shape.offset[2] as i32,
+            );
             let dx = pos.0 as f64 + 0.5 - entity_pos.x;
             let dy = pos.1 as f64 + 0.5 - entity_pos.y;
             let dz = pos.2 as f64 + 0.5 - entity_pos.z;
             let distance = dx * dx + dy * dy + dz * dz;
             if distance < main_distance
-                || distance == main_distance && main.is_none_or(|m| compare_block_pos(m, pos).is_lt())
+                || distance == main_distance
+                    && main.is_none_or(|m| compare_block_pos(m, pos).is_lt())
             {
                 main = Some(pos);
                 main_distance = distance;
@@ -1616,13 +1867,21 @@ fn compute_modified_friction(friction: f32, modifier: f32) -> f32 {
 
 /// `Math.signum(double)`.
 fn java_signum(v: f64) -> f64 {
-    if v == 0.0 || v.is_nan() { v } else { v.signum() }
+    if v == 0.0 || v.is_nan() {
+        v
+    } else {
+        v.signum()
+    }
 }
 
 /// `Vec2.normalized`.
 fn vec2_normalized(x: f32, y: f32) -> (f32, f32) {
     let len = math::sqrt_f32(x * x + y * y);
-    if len < 1.0e-4 { (0.0, 0.0) } else { (x / len, y / len) }
+    if len < 1.0e-4 {
+        (0.0, 0.0)
+    } else {
+        (x / len, y / len)
+    }
 }
 
 /// `LocalPlayer.modifyInputSpeedForSquareMovement`.
@@ -1640,7 +1899,13 @@ fn modify_input_speed_for_square_movement(x: f32, y: f32) -> (f32, f32) {
 }
 
 fn java_min_f32(a: f32, b: f32) -> f32 {
-    if a.is_nan() { a } else if a <= b { a } else { b }
+    if a.is_nan() {
+        a
+    } else if a <= b {
+        a
+    } else {
+        b
+    }
 }
 
 /// `Entity.collideWithShapes`.
@@ -1650,7 +1915,11 @@ fn collide_with_shapes(movement: Vec3, bbox: &Aabb, shapes: &[PlacedShape<'_>]) 
     }
     let mut resolved = Vec3::ZERO;
     // Direction.axisStepOrder: Y first, then the larger horizontal axis last.
-    let order = if movement.x.abs() < movement.z.abs() { [Axis::Y, Axis::Z, Axis::X] } else { [Axis::Y, Axis::X, Axis::Z] };
+    let order = if movement.x.abs() < movement.z.abs() {
+        [Axis::Y, Axis::Z, Axis::X]
+    } else {
+        [Axis::Y, Axis::X, Axis::Z]
+    };
     for axis in order {
         let axis_movement = movement.get(axis);
         if axis_movement != 0.0 {

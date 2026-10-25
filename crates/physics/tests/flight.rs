@@ -34,7 +34,10 @@ fn flyer_at(y: f64) -> Player {
 }
 
 fn jump(down: bool) -> Keys {
-    Keys { jump: down, ..Keys::default() }
+    Keys {
+        jump: down,
+        ..Keys::default()
+    }
 }
 
 /// One press-release-press of jump, `gap` ticks between the two presses.
@@ -123,7 +126,10 @@ fn jump_climbs_and_shift_descends_while_flying() {
 
     let mut q = flyer_at(70.0);
     q.abilities.flying = true;
-    q.held_keys = Keys { shift: true, ..Keys::default() };
+    q.held_keys = Keys {
+        shift: true,
+        ..Keys::default()
+    };
     q.tick(&world, &tags);
     assert!(q.pos.y < 70.0);
 }
@@ -133,7 +139,10 @@ fn landing_ends_flight() {
     let (world, tags) = (flat_world(), Tags::default());
     let mut p = flyer_at(66.0);
     p.abilities.flying = true;
-    p.held_keys = Keys { shift: true, ..Keys::default() };
+    p.held_keys = Keys {
+        shift: true,
+        ..Keys::default()
+    };
     for _ in 0..200 {
         p.tick(&world, &tags);
         if !p.abilities.flying {
@@ -156,7 +165,10 @@ fn a_spectator_is_always_flying_and_never_lands() {
     assert!(p.abilities_changed);
 
     p.abilities_changed = false;
-    p.held_keys = Keys { shift: true, ..Keys::default() };
+    p.held_keys = Keys {
+        shift: true,
+        ..Keys::default()
+    };
     for _ in 0..60 {
         p.tick(&world, &tags);
     }

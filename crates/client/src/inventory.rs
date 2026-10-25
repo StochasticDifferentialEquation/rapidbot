@@ -46,7 +46,13 @@ pub struct Inventory {
 
 impl Default for Inventory {
     fn default() -> Self {
-        Self { slots: vec![None; slot::COUNT], cursor: None, state_id: 0, selected: 0, container: None }
+        Self {
+            slots: vec![None; slot::COUNT],
+            cursor: None,
+            state_id: 0,
+            selected: 0,
+            container: None,
+        }
     }
 }
 
@@ -101,7 +107,9 @@ impl Inventory {
     /// is worn in its slot.
     pub fn can_glide(&self) -> bool {
         use EquipmentSlot::*;
-        [MainHand, OffHand, Feet, Legs, Chest, Head].into_iter().any(|s| self.equipped(s).is_some_and(|i| i.can_glide_in(s)))
+        [MainHand, OffHand, Feet, Legs, Chest, Head]
+            .into_iter()
+            .any(|s| self.equipped(s).is_some_and(|i| i.can_glide_in(s)))
     }
 
     /// The hotbar slot holding an item (`minecraft:diamond_pickaxe`).
@@ -111,12 +119,18 @@ impl Inventory {
 
     /// Items in the inventory screen's slots, with their menu slot.
     pub fn items(&self) -> impl Iterator<Item = (usize, &ItemStack)> {
-        self.slots.iter().enumerate().filter_map(|(i, s)| s.as_ref().map(|s| (i, s)))
+        self.slots
+            .iter()
+            .enumerate()
+            .filter_map(|(i, s)| s.as_ref().map(|s| (i, s)))
     }
 
     /// How many of an item the 36 storage slots and the offhand hold.
     pub fn count(&self, name: &str) -> i32 {
-        self.items().filter(|(i, s)| *i >= slot::MAIN && s.name() == name).map(|(_, s)| s.count).sum()
+        self.items()
+            .filter(|(i, s)| *i >= slot::MAIN && s.name() == name)
+            .map(|(_, s)| s.count)
+            .sum()
     }
 
     /// With a container open, its menu lists the container's slots and then
@@ -213,7 +227,11 @@ impl Inventory {
     pub(crate) fn open_screen(&mut self, mut body: &[u8]) -> Result<(), DecodeError> {
         let id = VarInt::decode(&mut body)?.0;
         let menu_type = VarInt::decode(&mut body)?.0;
-        self.container = Some(Container { id, menu_type, ..Default::default() });
+        self.container = Some(Container {
+            id,
+            menu_type,
+            ..Default::default()
+        });
         Ok(())
     }
 
@@ -252,14 +270,22 @@ mod tests {
         let mut inv = Inventory::default();
         assert!(!inv.can_glide());
         // In the hotbar it does nothing.
-        inv.set_slot(&set_slot(0, 1, 36, &stack_bytes("minecraft:elytra", 1))).unwrap();
+        inv.set_slot(&set_slot(0, 1, 36, &stack_bytes("minecraft:elytra", 1)))
+            .unwrap();
         assert!(!inv.can_glide());
         assert_eq!(inv.held().unwrap().name(), "minecraft:elytra");
-        inv.set_slot(&set_slot(0, 2, slot::CHEST as i16, &stack_bytes("minecraft:elytra", 1))).unwrap();
+        inv.set_slot(&set_slot(
+            0,
+            2,
+            slot::CHEST as i16,
+            &stack_bytes("minecraft:elytra", 1),
+        ))
+        .unwrap();
         assert!(inv.can_glide());
         assert_eq!(inv.state_id, 2);
         // Taken off again.
-        inv.set_slot(&set_slot(0, 3, slot::CHEST as i16, &[0])).unwrap();
+        inv.set_slot(&set_slot(0, 3, slot::CHEST as i16, &[0]))
+            .unwrap();
         assert!(!inv.can_glide());
     }
 
@@ -325,7 +351,8 @@ mod tests {
         assert_eq!(chest.slots[0].as_ref().unwrap().name(), "minecraft:diamond");
         assert_eq!(inv.hotbar(0).unwrap().name(), "minecraft:stick");
 
-        inv.set_slot(&set_slot(3, 2, 27, &stack_bytes("minecraft:apple", 1))).unwrap();
+        inv.set_slot(&set_slot(3, 2, 27, &stack_bytes("minecraft:apple", 1)))
+            .unwrap();
         assert_eq!(inv.get(slot::MAIN).unwrap().name(), "minecraft:apple");
         inv.close_container();
         assert!(inv.container.is_none());

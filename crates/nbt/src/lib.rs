@@ -163,7 +163,9 @@ impl Tag {
 
     pub fn read_payload(ty: u8, buf: &mut &[u8], depth: usize) -> Result<Tag, DecodeError> {
         if depth > MAX_DEPTH {
-            return Err(DecodeError::Custom("tried to read NBT tag with too high complexity, depth > 512".into()));
+            return Err(DecodeError::Custom(
+                "tried to read NBT tag with too high complexity, depth > 512".into(),
+            ));
         }
         Ok(match ty {
             id::BYTE => Tag::Byte(i8::decode(buf)?),

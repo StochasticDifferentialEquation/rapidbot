@@ -46,12 +46,18 @@ pub(crate) fn decode_string(buf: &mut &[u8], max: usize) -> Result<String, Decod
     let len = read_len(buf)?;
     let max_bytes = max * 3;
     if len > max_bytes {
-        return Err(DecodeError::StringTooLong { len, max: max_bytes });
+        return Err(DecodeError::StringTooLong {
+            len,
+            max: max_bytes,
+        });
     }
     let s = std::str::from_utf8(take(buf, len)?).map_err(|_| DecodeError::InvalidUtf8)?;
     let utf16_len = s.encode_utf16().count();
     if utf16_len > max {
-        return Err(DecodeError::StringTooLong { len: utf16_len, max });
+        return Err(DecodeError::StringTooLong {
+            len: utf16_len,
+            max,
+        });
     }
     Ok(s.to_owned())
 }
@@ -98,7 +104,11 @@ impl<T: Encode> Encode for Option<T> {
 
 impl<T: Decode> Decode for Option<T> {
     fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
-        Ok(if bool::decode(buf)? { Some(T::decode(buf)?) } else { None })
+        Ok(if bool::decode(buf)? {
+            Some(T::decode(buf)?)
+        } else {
+            None
+        })
     }
 }
 

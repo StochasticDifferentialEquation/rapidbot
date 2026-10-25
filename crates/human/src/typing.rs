@@ -30,7 +30,10 @@ impl Typist {
         for c in text.chars() {
             let mut keystroke = self.noise.lognormal(self.interval, 0.35);
             // Shifted characters and digits are a reach.
-            if c.is_uppercase() || (!c.is_alphanumeric() && c != ' ' && c != '/') || c.is_ascii_digit() {
+            if c.is_uppercase()
+                || (!c.is_alphanumeric() && c != ' ' && c != '/')
+                || c.is_ascii_digit()
+            {
                 keystroke *= 1.5;
             }
             // The same key twice is quick.

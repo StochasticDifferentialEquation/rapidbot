@@ -4,8 +4,8 @@
 //! own messages (`SignedMessageChain`).
 
 use rapidbot_buf::{Decode, DecodeError, VarInt};
-pub use rapidbot_protocol::packets::play::serverbound::LastSeenUpdate;
 use rapidbot_protocol::packets::play::serverbound as sb;
+pub use rapidbot_protocol::packets::play::serverbound::LastSeenUpdate;
 use rsa::pkcs1v15::SigningKey;
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::sha2::Sha256;
@@ -24,12 +24,16 @@ pub const MAX_MESSAGE_LENGTH: usize = 256;
 
 /// `MessageSignature.checksum()`: `Arrays.hashCode(bytes)`.
 fn checksum(signature: &Signature) -> i32 {
-    signature.iter().fold(1i32, |h, &b| h.wrapping_mul(31).wrapping_add(b as i8 as i32))
+    signature.iter().fold(1i32, |h, &b| {
+        h.wrapping_mul(31).wrapping_add(b as i8 as i32)
+    })
 }
 
 /// `LastSeenMessages.computeChecksum`.
 fn last_seen_checksum(entries: &[Signature]) -> u8 {
-    let sum = entries.iter().fold(1i32, |h, e| h.wrapping_mul(31).wrapping_add(checksum(e)));
+    let sum = entries
+        .iter()
+        .fold(1i32, |h, e| h.wrapping_mul(31).wrapping_add(checksum(e)));
     match sum as u8 {
         0 => 1,
         b => b,
@@ -48,7 +52,12 @@ struct Tracker {
 
 impl Tracker {
     fn new() -> Self {
-        Self { tracked: [None; LAST_SEEN], tail: 0, offset: 0, last_tracked: None }
+        Self {
+            tracked: [None; LAST_SEEN],
+            tail: 0,
+            offset: 0,
+            last_tracked: None,
+        }
     }
 
     /// `addPending`.
@@ -65,7 +74,11 @@ impl Tracker {
 
     /// `ignorePending`.
     fn ignore_pending(&mut self, signature: &Signature) {
-        if let Some(slot) = self.tracked.iter_mut().find(|s| matches!(s, Some((sig, true)) if sig == signature)) {
+        if let Some(slot) = self
+            .tracked
+            .iter_mut()
+            .find(|s| matches!(s, Some((sig, true)) if sig == signature))
+        {
             *slot = None;
         }
     }
@@ -89,7 +102,14 @@ impl Tracker {
             }
         }
         let checksum = last_seen_checksum(&entries);
-        (entries, LastSeenUpdate { offset, acknowledged, checksum })
+        (
+            entries,
+            LastSeenUpdate {
+                offset,
+                acknowledged,
+                checksum,
+            },
+        )
     }
 }
 
@@ -101,7 +121,9 @@ struct SignatureCache {
 
 impl SignatureCache {
     fn new() -> Self {
-        Self { entries: vec![None; CACHE_SIZE] }
+        Self {
+            entries: vec![None; CACHE_SIZE],
+        }
     }
 
     /// `push(body, signature)`: the message's last-seen list, then its own
@@ -189,7 +211,12 @@ pub struct ChatState {
 impl ChatState {
     /// A fresh listener's chat state: nothing seen, messages unsigned.
     pub fn new() -> Self {
-        Self { tracker: Tracker::new(), cache: SignatureCache::new(), next_chat_index: 0, session: None }
+        Self {
+            tracker: Tracker::new(),
+            cache: SignatureCache::new(),
+            next_chat_index: 0,
+            session: None,
+        }
     }
 
     /// `LocalChatSession.create`: from now on messages are signed with the
@@ -200,24 +227,40 @@ impl ChatState {
         let pem = private_key_pem.replace("RSA PRIVATE KEY", "PRIVATE KEY");
         let key = rsa::RsaPrivateKey::from_pkcs8_pem(&pem).ok()?;
         let session_id = Uuid::new_v4();
-        self.session = Some(Session { key: SigningKey::new(key), sender, session_id, index: 0 });
+        self.session = Some(Session {
+            key: SigningKey::new(key),
+            sender,
+            session_id,
+            index: 0,
+        });
         Some(session_id)
     }
 
     /// `handlePlayerChat`, up to deciding whether the message was shown.
     /// `known_sender` is whether the sender is in the tab list (a message
     /// from an unknown player is an error line, not shown as chat).
-    pub fn player_chat(&mut self, mut body: &[u8], known_sender: impl Fn(&Uuid) -> bool) -> Result<Incoming, ChatError> {
+    pub fn player_chat(
+        &mut self,
+        mut body: &[u8],
+        known_sender: impl Fn(&Uuid) -> bool,
+    ) -> Result<Incoming, ChatError> {
         let buf = &mut body;
         let global_index = VarInt::decode(buf)?.0;
         let expected = self.next_chat_index;
         self.next_chat_index += 1;
         if global_index != expected {
-            return Err(ChatError::BadIndex { expected, got: global_index });
+            return Err(ChatError::BadIndex {
+                expected,
+                got: global_index,
+            });
         }
         let sender = Uuid::decode(buf)?;
         let _index = VarInt::decode(buf)?;
-        let signature = if bool::decode(buf)? { Some(read_signature(buf)?) } else { None };
+        let signature = if bool::decode(buf)? {
+            Some(read_signature(buf)?)
+        } else {
+            None
+        };
         // SignedMessageBody.Packed
         let text = String::decode(buf)?;
         let _timestamp = i64::decode(buf)?;
@@ -249,7 +292,10 @@ impl ChatState {
 
     /// `handleDeleteChat`.
     pub fn delete_chat(&mut self, mut body: &[u8]) -> Result<(), ChatError> {
-        let signature = self.cache.read(&mut body)?.ok_or(ChatError::UnknownSignature)?;
+        let signature = self
+            .cache
+            .read(&mut body)?
+            .ok_or(ChatError::UnknownSignature)?;
         self.tracker.ignore_pending(&signature);
         Ok(())
     }
@@ -259,14 +305,27 @@ impl ChatState {
         let salt: i64 = rand::random();
         let (seen, last_seen) = self.tracker.generate_update();
         let signature = self.sign(message, now_ms, salt, &seen);
-        Outgoing::Chat(sb::Chat { message: message.to_owned(), timestamp: now_ms, salt, signature, last_seen })
+        Outgoing::Chat(sb::Chat {
+            message: message.to_owned(),
+            timestamp: now_ms,
+            salt,
+            signature,
+            last_seen,
+        })
     }
 
     /// `ClientPacketListener.sendCommand` (without the leading slash).
     /// `signable` is what `CommandTree::signable_arguments` found.
-    pub fn command(&mut self, command: &str, signable: &[(String, String)], now_ms: i64) -> Outgoing {
+    pub fn command(
+        &mut self,
+        command: &str,
+        signable: &[(String, String)],
+        now_ms: i64,
+    ) -> Outgoing {
         if signable.is_empty() {
-            return Outgoing::Command(sb::ChatCommand { command: command.to_owned() });
+            return Outgoing::Command(sb::ChatCommand {
+                command: command.to_owned(),
+            });
         }
         let salt: i64 = rand::random();
         let (seen, last_seen) = self.tracker.generate_update();
@@ -274,16 +333,38 @@ impl ChatState {
         // signed (no chat session) are left out.
         let signatures = signable
             .iter()
-            .filter_map(|(name, value)| Some((name.clone(), self.sign(value, now_ms, salt, &seen)?)))
+            .filter_map(|(name, value)| {
+                Some((name.clone(), self.sign(value, now_ms, salt, &seen)?))
+            })
             .collect();
-        Outgoing::SignedCommand(sb::ChatCommandSigned { command: command.to_owned(), timestamp: now_ms, salt, signatures, last_seen })
+        Outgoing::SignedCommand(sb::ChatCommandSigned {
+            command: command.to_owned(),
+            timestamp: now_ms,
+            salt,
+            signatures,
+            last_seen,
+        })
     }
 
     /// `SignedMessageChain.Encoder.pack`: `SHA256withRSA` over
     /// `PlayerChatMessage.updateSignature`.
-    fn sign(&mut self, content: &str, now_ms: i64, salt: i64, last_seen: &[Signature]) -> Option<Box<Signature>> {
+    fn sign(
+        &mut self,
+        content: &str,
+        now_ms: i64,
+        salt: i64,
+        last_seen: &[Signature],
+    ) -> Option<Box<Signature>> {
         let session = self.session.as_mut()?;
-        let data = signed_bytes(session.sender, session.session_id, session.index, content, now_ms, salt, last_seen);
+        let data = signed_bytes(
+            session.sender,
+            session.session_id,
+            session.index,
+            content,
+            now_ms,
+            salt,
+            last_seen,
+        );
         session.index = session.index.checked_add(1)?;
         let signature = session.key.sign(&data).to_bytes();
         let mut out = Box::new([0u8; SIGNATURE_BYTES]);
@@ -303,7 +384,15 @@ impl Default for ChatState {
 
 /// The bytes a chat signature covers: version 1, the link (sender, session,
 /// index), then the body (salt, time in seconds, content, last seen).
-fn signed_bytes(sender: Uuid, session_id: Uuid, index: i32, content: &str, now_ms: i64, salt: i64, last_seen: &[Signature]) -> Vec<u8> {
+fn signed_bytes(
+    sender: Uuid,
+    session_id: Uuid,
+    index: i32,
+    content: &str,
+    now_ms: i64,
+    salt: i64,
+    last_seen: &[Signature],
+) -> Vec<u8> {
     let mut data = Vec::with_capacity(64 + content.len() + last_seen.len() * SIGNATURE_BYTES);
     data.extend_from_slice(&1i32.to_be_bytes());
     data.extend_from_slice(sender.as_bytes());
@@ -325,7 +414,10 @@ fn signed_bytes(sender: Uuid, session_id: Uuid, index: i32, content: &str, now_m
 /// (`StringUtil.filterText`): no section signs or control characters, runs
 /// of whitespace collapsed, at most 256 UTF-16 units.
 pub fn normalize(message: &str) -> String {
-    let filtered: String = message.chars().filter(|&c| c != '\u{a7}' && c >= ' ' && c != '\u{7f}').collect();
+    let filtered: String = message
+        .chars()
+        .filter(|&c| c != '\u{a7}' && c >= ' ' && c != '\u{7f}')
+        .collect();
     let collapsed = filtered.split_whitespace().collect::<Vec<_>>().join(" ");
     let mut units = 0;
     collapsed
@@ -357,7 +449,10 @@ mod tests {
         }
         assert_eq!(checksum(&sig(1)), h);
         // Bytes are signed in Java.
-        assert_eq!(checksum(&sig(0xff)), (0..256).fold(1i32, |h, _| h.wrapping_mul(31).wrapping_sub(1)));
+        assert_eq!(
+            checksum(&sig(0xff)),
+            (0..256).fold(1i32, |h, _| h.wrapping_mul(31).wrapping_sub(1))
+        );
         // An empty list hashes to 1; a zero byte is replaced by 1.
         assert_eq!(last_seen_checksum(&[]), 1);
     }
@@ -367,11 +462,24 @@ mod tests {
         let mut t = Tracker::new();
         let (seen, update) = t.generate_update();
         assert!(seen.is_empty());
-        assert_eq!(update, LastSeenUpdate { offset: 0, acknowledged: 0, checksum: 1 });
+        assert_eq!(
+            update,
+            LastSeenUpdate {
+                offset: 0,
+                acknowledged: 0,
+                checksum: 1
+            }
+        );
 
         assert!(t.add_pending(sig(1), true));
-        assert!(!t.add_pending(sig(1), true), "the same message twice in a row counts once");
-        assert!(t.add_pending(sig(2), false), "not shown: takes a slot, tracks nothing");
+        assert!(
+            !t.add_pending(sig(1), true),
+            "the same message twice in a row counts once"
+        );
+        assert!(
+            t.add_pending(sig(2), false),
+            "not shown: takes a slot, tracks nothing"
+        );
         assert!(t.add_pending(sig(3), true));
         let (seen, update) = t.generate_update();
         assert_eq!(seen, [sig(1), sig(3)]);
@@ -395,7 +503,12 @@ mod tests {
     #[test]
     fn update_wire_format() {
         let mut out = Vec::new();
-        LastSeenUpdate { offset: 3, acknowledged: 1 << 17 | 1 << 19, checksum: 7 }.encode(&mut out);
+        LastSeenUpdate {
+            offset: 3,
+            acknowledged: 1 << 17 | 1 << 19,
+            checksum: 7,
+        }
+        .encode(&mut out);
         assert_eq!(out, [3, 0, 0, 0b1010, 7]);
     }
 
@@ -404,10 +517,16 @@ mod tests {
         let mut c = SignatureCache::new();
         // A message with signature 3 that had seen 1 and 2.
         c.push(&[sig(1), sig(2)], Some(&sig(3)));
-        assert_eq!(c.entries[..4], [Some(sig(3)), Some(sig(2)), Some(sig(1)), None]);
+        assert_eq!(
+            c.entries[..4],
+            [Some(sig(3)), Some(sig(2)), Some(sig(1)), None]
+        );
         // The next one saw 2 and 3: they move to the front, 1 shifts back.
         c.push(&[sig(2), sig(3)], Some(&sig(4)));
-        assert_eq!(c.entries[..5], [Some(sig(4)), Some(sig(3)), Some(sig(2)), Some(sig(1)), None]);
+        assert_eq!(
+            c.entries[..5],
+            [Some(sig(4)), Some(sig(3)), Some(sig(2)), Some(sig(1)), None]
+        );
         // Packed IDs are index + 1; 0 means a full signature follows.
         let mut packed: &[u8] = &[4];
         assert_eq!(c.read(&mut packed).unwrap(), Some(sig(1)));
@@ -439,25 +558,49 @@ mod tests {
     fn incoming_chat_is_tracked_and_acknowledged() {
         let mut chat = ChatState::new();
         let sender = Uuid::from_u128(7);
-        let got = chat.player_chat(&player_chat(0, sender, None, "hi"), |_| true).unwrap();
-        assert_eq!(got, Incoming { sender, text: "hi".into(), ack: None });
+        let got = chat
+            .player_chat(&player_chat(0, sender, None, "hi"), |_| true)
+            .unwrap();
+        assert_eq!(
+            got,
+            Incoming {
+                sender,
+                text: "hi".into(),
+                ack: None
+            }
+        );
         // Unsigned messages are not tracked.
         assert_eq!(chat.tracker.offset, 0);
 
         // The index must count up.
         assert!(matches!(
             chat.player_chat(&player_chat(5, sender, None, "x"), |_| true),
-            Err(ChatError::BadIndex { expected: 1, got: 5 })
+            Err(ChatError::BadIndex {
+                expected: 1,
+                got: 5
+            })
         ));
 
         // 65 signed messages: the 65th pushes the offset past 64.
         let mut chat = ChatState::new();
         for i in 0..65u8 {
-            let got = chat.player_chat(&player_chat(i as i32, sender, Some(sig(i + 1)), "m"), |_| true).unwrap();
+            let got = chat
+                .player_chat(
+                    &player_chat(i as i32, sender, Some(sig(i + 1)), "m"),
+                    |_| true,
+                )
+                .unwrap();
             assert_eq!(got.ack, (i == 64).then_some(65), "message {i}");
         }
         // Our next message reports the last 20 and no further offset.
-        let Outgoing::Chat(sb::Chat { signature, last_seen, .. }) = chat.chat("hello", 1_000) else { panic!() };
+        let Outgoing::Chat(sb::Chat {
+            signature,
+            last_seen,
+            ..
+        }) = chat.chat("hello", 1_000)
+        else {
+            panic!()
+        };
         assert!(signature.is_none(), "no chat session: unsigned");
         assert_eq!(last_seen.offset, 0);
         assert_eq!(last_seen.acknowledged, (1 << 20) - 1);
@@ -466,11 +609,20 @@ mod tests {
     #[test]
     fn commands_pick_their_packet() {
         let mut chat = ChatState::new();
-        assert_eq!(chat.command("home", &[], 0), Outgoing::Command(sb::ChatCommand { command: "home".into() }));
+        assert_eq!(
+            chat.command("home", &[], 0),
+            Outgoing::Command(sb::ChatCommand {
+                command: "home".into()
+            })
+        );
         // A message argument without a session: the signed packet, with no
         // signatures in it.
         let signable = [("message".to_owned(), "hi".to_owned())];
-        let Outgoing::SignedCommand(sb::ChatCommandSigned { command, signatures, .. }) = chat.command("msg Steve hi", &signable, 0)
+        let Outgoing::SignedCommand(sb::ChatCommandSigned {
+            command,
+            signatures,
+            ..
+        }) = chat.command("msg Steve hi", &signable, 0)
         else {
             panic!()
         };
@@ -480,7 +632,15 @@ mod tests {
 
     #[test]
     fn signed_bytes_layout() {
-        let data = signed_bytes(Uuid::from_u128(1), Uuid::from_u128(2), 3, "hé", 1_999, 5, &[sig(9)]);
+        let data = signed_bytes(
+            Uuid::from_u128(1),
+            Uuid::from_u128(2),
+            3,
+            "hé",
+            1_999,
+            5,
+            &[sig(9)],
+        );
         let mut expected = vec![0, 0, 0, 1];
         expected.extend_from_slice(&1u128.to_be_bytes());
         expected.extend_from_slice(&2u128.to_be_bytes());

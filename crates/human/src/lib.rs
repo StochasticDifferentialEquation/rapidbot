@@ -27,7 +27,9 @@ pub struct Noise {
 
 impl Noise {
     pub fn new(seed: u64) -> Self {
-        Self { rng: StdRng::seed_from_u64(seed) }
+        Self {
+            rng: StdRng::seed_from_u64(seed),
+        }
     }
 
     pub fn uniform(&mut self, lo: f64, hi: f64) -> f64 {

@@ -10,10 +10,20 @@ fn bits(s: &str) -> f64 {
 
 #[test]
 fn matches_vanilla_bit_for_bit() {
-    let mut lines = include_str!("data/clip_vectors.txt").lines().filter(|l| !l.starts_with('#'));
-    let palette: Vec<u32> = lines.next().unwrap().split(' ').map(|v| v.parse().unwrap()).collect();
+    let mut lines = include_str!("data/clip_vectors.txt")
+        .lines()
+        .filter(|l| !l.starts_with('#'));
+    let palette: Vec<u32> = lines
+        .next()
+        .unwrap()
+        .split(' ')
+        .map(|v| v.parse().unwrap())
+        .collect();
 
-    let mut world = World::new(DimensionHeight { min_y: -64, height: 384 });
+    let mut world = World::new(DimensionHeight {
+        min_y: -64,
+        height: 384,
+    });
     for cx in -1..=1 {
         for cz in -1..=1 {
             world.insert_chunk(cx, cz, rapidbot_world::chunk::Chunk::empty(24));
@@ -22,7 +32,12 @@ fn matches_vanilla_bit_for_bit() {
     for x in 0..6 {
         for y in 0..6 {
             for z in 0..6 {
-                world.set_block_state(x, y, z, palette[((x * 7 + y * 13 + z * 31) as usize) % palette.len()]);
+                world.set_block_state(
+                    x,
+                    y,
+                    z,
+                    palette[((x * 7 + y * 13 + z * 31) as usize) % palette.len()],
+                );
             }
         }
     }
@@ -37,10 +52,18 @@ fn matches_vanilla_bit_for_bit() {
         assert_eq!(hit.miss, f[6] == "1", "{context}");
         let pos: Vec<i32> = f[7..10].iter().map(|v| v.parse().unwrap()).collect();
         assert_eq!(hit.pos, (pos[0], pos[1], pos[2]), "{context}");
-        assert_eq!(hit.direction as usize, f[10].parse::<usize>().unwrap(), "{context}");
+        assert_eq!(
+            hit.direction as usize,
+            f[10].parse::<usize>().unwrap(),
+            "{context}"
+        );
         assert_eq!(hit.inside, f[11] == "1", "{context}");
         let location = [bits(f[12]), bits(f[13]), bits(f[14])];
-        assert_eq!(hit.location.map(f64::to_bits), location.map(f64::to_bits), "{context}");
+        assert_eq!(
+            hit.location.map(f64::to_bits),
+            location.map(f64::to_bits),
+            "{context}"
+        );
         rays += 1;
         hits += usize::from(!hit.miss);
     }
@@ -50,7 +73,16 @@ fn matches_vanilla_bit_for_bit() {
 
 #[test]
 fn nearest_direction() {
-    assert_eq!(Direction::approximate_nearest(0.0, 0.0, 0.0), Direction::North);
-    assert_eq!(Direction::approximate_nearest(0.3, -0.9, 0.1), Direction::Down);
-    assert_eq!(Direction::approximate_nearest(1.0, 0.2, 0.9), Direction::East);
+    assert_eq!(
+        Direction::approximate_nearest(0.0, 0.0, 0.0),
+        Direction::North
+    );
+    assert_eq!(
+        Direction::approximate_nearest(0.3, -0.9, 0.1),
+        Direction::Down
+    );
+    assert_eq!(
+        Direction::approximate_nearest(1.0, 0.2, 0.9),
+        Direction::East
+    );
 }

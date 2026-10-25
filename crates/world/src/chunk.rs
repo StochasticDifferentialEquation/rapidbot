@@ -9,7 +9,11 @@ const SECTION_VOLUME: usize = 4096;
 
 /// `Mth.ceillog2`.
 fn ceillog2(n: usize) -> u32 {
-    if n <= 1 { 0 } else { usize::BITS - (n - 1).leading_zeros() }
+    if n <= 1 {
+        0
+    } else {
+        usize::BITS - (n - 1).leading_zeros()
+    }
 }
 
 /// A section's block states, kept in the compact form the server sent until
@@ -30,7 +34,11 @@ impl Container {
     fn get(&self, index: usize) -> StateId {
         match self {
             Container::Single(v) => *v,
-            Container::Packed { palette, bits, data } => {
+            Container::Packed {
+                palette,
+                bits,
+                data,
+            } => {
                 // SimpleBitStorage: values never straddle two longs.
                 let per_long = (64 / bits) as usize;
                 let word = data[index / per_long];
@@ -56,7 +64,11 @@ impl Container {
     }
 
     /// `PalettedContainer.read` with the block-state `Strategy`.
-    fn read_block_states(buf: &mut &[u8], global_bits: u32, state_count: usize) -> Result<Self, DecodeError> {
+    fn read_block_states(
+        buf: &mut &[u8],
+        global_bits: u32,
+        state_count: usize,
+    ) -> Result<Self, DecodeError> {
         let bits = u8::decode(buf)? as u32;
         match bits {
             0 => {
@@ -69,13 +81,21 @@ impl Container {
                 let storage_bits = if bits <= 4 { 4 } else { bits };
                 let palette = read_palette(buf)?;
                 let data = read_longs(buf, storage_bits)?;
-                Ok(Container::Packed { palette: Some(palette), bits: storage_bits, data })
+                Ok(Container::Packed {
+                    palette: Some(palette),
+                    bits: storage_bits,
+                    data,
+                })
             }
             // Global palette: stored at the in-memory width of the registry.
             _ => {
                 let data = read_longs(buf, global_bits)?;
                 validate_global_states(&data, global_bits, state_count)?;
-                Ok(Container::Packed { palette: None, bits: global_bits, data })
+                Ok(Container::Packed {
+                    palette: None,
+                    bits: global_bits,
+                    data,
+                })
             }
         }
     }
@@ -83,7 +103,9 @@ impl Container {
 
 fn validate_global_states(data: &[u64], bits: u32, state_count: usize) -> Result<(), DecodeError> {
     if bits == 0 || bits > 64 {
-        return Err(DecodeError::Custom("invalid global block state bit width".into()));
+        return Err(DecodeError::Custom(
+            "invalid global block state bit width".into(),
+        ));
     }
     let per_long = (64 / bits) as usize;
     let mask = u64::MAX >> (64 - bits);
@@ -92,7 +114,9 @@ fn validate_global_states(data: &[u64], bits: u32, state_count: usize) -> Result
         let shift = (index % per_long) as u32 * bits;
         let raw = (word >> shift) & mask;
         if usize::try_from(raw).map_or(true, |id| id >= state_count) {
-            return Err(DecodeError::Custom(format!("global block state ID {raw} exceeds registry size {state_count}")));
+            return Err(DecodeError::Custom(format!(
+                "global block state ID {raw} exceeds registry size {state_count}"
+            )));
         }
     }
     Ok(())
@@ -104,7 +128,9 @@ fn read_palette(buf: &mut &[u8]) -> Result<Vec<StateId>, DecodeError> {
     if size > buf.len() {
         return Err(DecodeError::UnexpectedEof);
     }
-    (0..size).map(|_| VarInt::decode(buf).map(|v| v.0 as StateId)).collect()
+    (0..size)
+        .map(|_| VarInt::decode(buf).map(|v| v.0 as StateId))
+        .collect()
 }
 
 /// `readFixedSizeLongArray` sized for `SimpleBitStorage(bits, 4096)`.
@@ -119,7 +145,10 @@ fn read_longs_for(buf: &mut &[u8], bits: u32, entries: usize) -> Result<Vec<u64>
     let per_long = (64 / bits) as usize;
     let count = entries.div_ceil(per_long);
     let bytes = take(buf, count * 8)?;
-    Ok(bytes.chunks_exact(8).map(|c| u64::from_be_bytes(c.try_into().unwrap())).collect())
+    Ok(bytes
+        .chunks_exact(8)
+        .map(|c| u64::from_be_bytes(c.try_into().unwrap()))
+        .collect())
 }
 
 /// Skips a biome container (`Strategy.createForBiomes`, 64 entries).
@@ -163,13 +192,23 @@ pub struct Chunk {
 impl Chunk {
     /// An all-air chunk with `sections` sections, for building test worlds.
     pub fn empty(sections: usize) -> Self {
-        Chunk { sections: (0..sections).map(|_| Section { states: Container::Single(AIR) }).collect() }
+        Chunk {
+            sections: (0..sections)
+                .map(|_| Section {
+                    states: Container::Single(AIR),
+                })
+                .collect(),
+        }
     }
 
     /// Parses the section buffer of `ClientboundLevelChunkPacketData`
     /// (after the heightmaps). `state_count` and `biome_count` are the
     /// registry sizes that fix the global-palette widths.
-    pub fn read_sections(mut buf: &[u8], state_count: usize, biome_count: usize) -> Result<Self, DecodeError> {
+    pub fn read_sections(
+        mut buf: &[u8],
+        state_count: usize,
+        biome_count: usize,
+    ) -> Result<Self, DecodeError> {
         let state_bits = ceillog2(state_count);
         let biome_bits = ceillog2(biome_count);
         let mut sections = Vec::new();
@@ -186,10 +225,15 @@ impl Chunk {
     /// Parses the whole chunk payload of `ClientboundLevelChunkWithLightPacket`
     /// after the x/z coordinates: heightmaps, section buffer, block entities,
     /// light (ignored).
-    pub fn read_packet(mut buf: &[u8], state_count: usize, biome_count: usize) -> Result<Self, DecodeError> {
+    pub fn read_packet(
+        mut buf: &[u8],
+        state_count: usize,
+        biome_count: usize,
+    ) -> Result<Self, DecodeError> {
         // Heightmaps: map of VarInt type -> long array.
         let heightmaps = VarInt::decode(&mut buf)?.0;
-        let heightmaps = usize::try_from(heightmaps).map_err(|_| DecodeError::NegativeLength(heightmaps))?;
+        let heightmaps =
+            usize::try_from(heightmaps).map_err(|_| DecodeError::NegativeLength(heightmaps))?;
         for _ in 0..heightmaps {
             VarInt::decode(&mut buf)?;
             let len = VarInt::decode(&mut buf)?.0;
@@ -220,11 +264,17 @@ mod tests {
     fn palette_count_cannot_exceed_remaining_bytes() {
         let mut oversized = Vec::new();
         VarInt(i32::MAX).encode(&mut oversized);
-        assert!(matches!(read_palette(&mut oversized.as_slice()), Err(DecodeError::UnexpectedEof)));
+        assert!(matches!(
+            read_palette(&mut oversized.as_slice()),
+            Err(DecodeError::UnexpectedEof)
+        ));
 
         let mut negative = Vec::new();
         VarInt(-1).encode(&mut negative);
-        assert!(matches!(read_palette(&mut negative.as_slice()), Err(DecodeError::NegativeLength(-1))));
+        assert!(matches!(
+            read_palette(&mut negative.as_slice()),
+            Err(DecodeError::NegativeLength(-1))
+        ));
     }
 
     #[test]
@@ -237,7 +287,11 @@ mod tests {
         buf.extend_from_slice(&[2, 0, 1]);
         for word in 0..256u64 {
             // 16 entries per long; the first 256 entries (y = 0) are stone.
-            let v = if word < 16 { 0x1111_1111_1111_1111u64 } else { 0 };
+            let v = if word < 16 {
+                0x1111_1111_1111_1111u64
+            } else {
+                0
+            };
             buf.extend_from_slice(&v.to_be_bytes());
         }
         // Biomes: single value.
@@ -257,11 +311,19 @@ mod tests {
     #[test]
     fn heightmap_count_rejects_negative_values() {
         let negative = rapidbot_buf::to_bytes(&VarInt(-1));
-        assert!(matches!(Chunk::read_packet(&negative, 1, 1), Err(DecodeError::NegativeLength(-1))));
+        assert!(matches!(
+            Chunk::read_packet(&negative, 1, 1),
+            Err(DecodeError::NegativeLength(-1))
+        ));
 
         let mut empty = rapidbot_buf::to_bytes(&VarInt(0));
         empty.extend(rapidbot_buf::to_bytes(&rapidbot_buf::ByteArray::default()));
-        assert!(Chunk::read_packet(&empty, 1, 1).unwrap().sections.is_empty());
+        assert!(
+            Chunk::read_packet(&empty, 1, 1)
+                .unwrap()
+                .sections
+                .is_empty()
+        );
     }
 
     #[test]
@@ -288,10 +350,10 @@ mod tests {
 
         assert_eq!(read(0, 16).unwrap().sections[0].get(0, 0, 0), 16);
         for invalid_index in [0, 5, SECTION_VOLUME - 1] {
-            assert!(matches!(
-                read(invalid_index, 17),
-                Err(DecodeError::Custom(_))
-            ), "invalid state ID in packed slot {invalid_index} was accepted");
+            assert!(
+                matches!(read(invalid_index, 17), Err(DecodeError::Custom(_))),
+                "invalid state ID in packed slot {invalid_index} was accepted"
+            );
         }
     }
 }

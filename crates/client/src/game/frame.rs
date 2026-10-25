@@ -14,7 +14,11 @@ pub struct DeltaTimer {
 
 impl DeltaTimer {
     pub fn new(ticks_per_second: f32, now_ms: i64) -> Self {
-        Self { delta_tick_residual: 0.0, last_ms: now_ms, ms_per_tick: 1000.0 / ticks_per_second }
+        Self {
+            delta_tick_residual: 0.0,
+            last_ms: now_ms,
+            ms_per_tick: 1000.0 / ticks_per_second,
+        }
     }
 
     /// `advanceGameTime`: ticks due since the last call.
@@ -41,7 +45,11 @@ pub struct DisplaySettings {
 
 impl Default for DisplaySettings {
     fn default() -> Self {
-        Self { framerate_limit: 120, vsync: true, refresh_rate: 60 }
+        Self {
+            framerate_limit: 120,
+            vsync: true,
+            refresh_rate: 60,
+        }
     }
 }
 
@@ -55,7 +63,10 @@ pub struct FrameLimiter {
 impl FrameLimiter {
     pub fn new(settings: DisplaySettings, now_ms: i64) -> Self {
         // The player just clicked "Join Server".
-        Self { settings, latest_input_ms: now_ms }
+        Self {
+            settings,
+            latest_input_ms: now_ms,
+        }
     }
 
     pub fn on_input_received(&mut self, now_ms: i64) {
@@ -66,7 +77,9 @@ impl FrameLimiter {
     /// `InactivityFpsLimit.AFK`, capped by vsync.
     pub fn framerate(&self, in_menu: bool) -> u32 {
         let base = if self.settings.vsync {
-            self.settings.framerate_limit.min(self.settings.refresh_rate)
+            self.settings
+                .framerate_limit
+                .min(self.settings.refresh_rate)
         } else {
             self.settings.framerate_limit
         };

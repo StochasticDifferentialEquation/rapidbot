@@ -42,7 +42,11 @@ pub(crate) async fn device_code_login(
 ) -> Result<CachedMsa, AuthError> {
     let code: DeviceCode = http
         .post(DEVICE_CODE_URL)
-        .form(&[("client_id", client_id), ("scope", SCOPE), ("response_type", "device_code")])
+        .form(&[
+            ("client_id", client_id),
+            ("scope", SCOPE),
+            ("response_type", "device_code"),
+        ])
         .send()
         .await?
         .error_for_status()?
@@ -70,7 +74,12 @@ pub(crate) async fn device_code_login(
         match err.error.as_str() {
             "authorization_pending" => {}
             "slow_down" => interval += 5,
-            _ => return Err(AuthError::Microsoft(format!("{}: {}", err.error, err.error_description))),
+            _ => {
+                return Err(AuthError::Microsoft(format!(
+                    "{}: {}",
+                    err.error, err.error_description
+                )));
+            }
         }
         debug!("waiting for device code sign-in");
     }
@@ -94,11 +103,18 @@ pub(crate) async fn refresh(
         .await?;
     if !response.status().is_success() {
         let err: ErrorResponse = response.json().await?;
-        return Err(AuthError::Microsoft(format!("{}: {}", err.error, err.error_description)));
+        return Err(AuthError::Microsoft(format!(
+            "{}: {}",
+            err.error, err.error_description
+        )));
     }
     Ok(to_cached(response.json().await?))
 }
 
 fn to_cached(t: TokenResponse) -> CachedMsa {
-    CachedMsa { access_token: t.access_token, refresh_token: t.refresh_token, expires_at: now_secs() + t.expires_in }
+    CachedMsa {
+        access_token: t.access_token,
+        refresh_token: t.refresh_token,
+        expires_at: now_secs() + t.expires_in,
+    }
 }

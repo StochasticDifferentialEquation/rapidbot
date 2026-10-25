@@ -8,7 +8,8 @@ use uuid::Uuid;
 
 use crate::AuthError;
 
-const LOGIN_WITH_XBOX_URL: &str = "https://api.minecraftservices.com/authentication/login_with_xbox";
+const LOGIN_WITH_XBOX_URL: &str =
+    "https://api.minecraftservices.com/authentication/login_with_xbox";
 const PROFILE_URL: &str = "https://api.minecraftservices.com/minecraft/profile";
 const CERTIFICATES_URL: &str = "https://api.minecraftservices.com/player/certificates";
 const JOIN_URL: &str = "https://sessionserver.mojang.com/session/minecraft/join";
@@ -31,7 +32,10 @@ pub(crate) async fn login_with_xbox(
         .await?;
     if !response.status().is_success() {
         let status = response.status();
-        return Err(AuthError::Minecraft(format!("login_with_xbox: HTTP {status}: {}", response.text().await?)));
+        return Err(AuthError::Minecraft(format!(
+            "login_with_xbox: HTTP {status}: {}",
+            response.text().await?
+        )));
     }
     let r: LoginResponse = response.json().await?;
     Ok((r.access_token, r.expires_in))
@@ -48,13 +52,21 @@ struct ProfileResponse {
     name: String,
 }
 
-pub(crate) async fn profile(http: &reqwest::Client, access_token: &str) -> Result<Profile, AuthError> {
-    let response = http.get(PROFILE_URL).bearer_auth(access_token).send().await?;
+pub(crate) async fn profile(
+    http: &reqwest::Client,
+    access_token: &str,
+) -> Result<Profile, AuthError> {
+    let response = http
+        .get(PROFILE_URL)
+        .bearer_auth(access_token)
+        .send()
+        .await?;
     if response.status() == reqwest::StatusCode::NOT_FOUND {
         return Err(AuthError::NoProfile);
     }
     let r: ProfileResponse = response.error_for_status()?.json().await?;
-    let id = Uuid::parse_str(&r.id).map_err(|e| AuthError::Minecraft(format!("bad profile id: {e}")))?;
+    let id =
+        Uuid::parse_str(&r.id).map_err(|e| AuthError::Minecraft(format!("bad profile id: {e}")))?;
     Ok(Profile { id, name: r.name })
 }
 
@@ -90,7 +102,10 @@ struct KeyPair {
     public_key: String,
 }
 
-pub(crate) async fn certificates(http: &reqwest::Client, access_token: &str) -> Result<ChatKeys, AuthError> {
+pub(crate) async fn certificates(
+    http: &reqwest::Client,
+    access_token: &str,
+) -> Result<ChatKeys, AuthError> {
     let r: CertificatesResponse = http
         .post(CERTIFICATES_URL)
         .bearer_auth(access_token)
@@ -103,9 +118,12 @@ pub(crate) async fn certificates(http: &reqwest::Client, access_token: &str) -> 
     Ok(ChatKeys {
         private_key_pem: r.key_pair.private_key,
         public_key_der: pem_body(&r.key_pair.public_key).ok_or_else(|| bad("public key"))?,
-        signature_v2: BASE64.decode(r.public_key_signature_v2.trim()).map_err(|_| bad("signature"))?,
+        signature_v2: BASE64
+            .decode(r.public_key_signature_v2.trim())
+            .map_err(|_| bad("signature"))?,
         expires_at: parse_iso8601_millis(&r.expires_at).ok_or_else(|| bad("expiresAt"))?,
-        refreshed_after: parse_iso8601_millis(&r.refreshed_after).ok_or_else(|| bad("refreshedAfter"))?,
+        refreshed_after: parse_iso8601_millis(&r.refreshed_after)
+            .ok_or_else(|| bad("refreshedAfter"))?,
     })
 }
 
@@ -128,7 +146,10 @@ fn parse_iso8601_millis(s: &str) -> Option<i64> {
         let (c, off) = time.split_at(i);
         let sign = if off.starts_with('-') { -1 } else { 1 };
         let (h, m) = off[1..].split_once(':')?;
-        (c, sign * (h.parse::<i64>().ok()? * 3600 + m.parse::<i64>().ok()? * 60))
+        (
+            c,
+            sign * (h.parse::<i64>().ok()? * 3600 + m.parse::<i64>().ok()? * 60),
+        )
     } else {
         (time, 0)
     };
@@ -159,7 +180,11 @@ pub enum JoinError {
 /// `YggdrasilMinecraftSessionService.joinServer`: tells Mojang this account
 /// is joining the server identified by `server_hash`. The server then checks
 /// with Mojang (`hasJoined`) after we send the encryption key.
-pub async fn join_server(access_token: &str, profile_id: Uuid, server_hash: &str) -> Result<(), JoinError> {
+pub async fn join_server(
+    access_token: &str,
+    profile_id: Uuid,
+    server_hash: &str,
+) -> Result<(), JoinError> {
     let response = reqwest::Client::new()
         .post(JOIN_URL)
         .json(&json!({
@@ -173,7 +198,10 @@ pub async fn join_server(access_token: &str, profile_id: Uuid, server_hash: &str
         Ok(())
     } else {
         let status = response.status().as_u16();
-        Err(JoinError::Rejected { status, body: response.text().await.unwrap_or_default() })
+        Err(JoinError::Rejected {
+            status,
+            body: response.text().await.unwrap_or_default(),
+        })
     }
 }
 
@@ -184,8 +212,14 @@ mod tests {
     #[test]
     fn iso8601() {
         assert_eq!(parse_iso8601_millis("1970-01-01T00:00:00Z"), Some(0));
-        assert_eq!(parse_iso8601_millis("2026-09-29T12:00:00.5Z"), Some(1_790_683_200_500));
-        assert_eq!(parse_iso8601_millis("2026-09-29T14:00:00.123456+02:00"), Some(1_790_683_200_123));
+        assert_eq!(
+            parse_iso8601_millis("2026-09-29T12:00:00.5Z"),
+            Some(1_790_683_200_500)
+        );
+        assert_eq!(
+            parse_iso8601_millis("2026-09-29T14:00:00.123456+02:00"),
+            Some(1_790_683_200_123)
+        );
     }
 
     #[test]

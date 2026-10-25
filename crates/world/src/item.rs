@@ -58,17 +58,20 @@ static SOUND: Shape = Holder(&Seq(&[Str, Opt(&Float)]));
 static EFFECT: Shape = Seq(&[VarInt, EffectDetails]);
 /// `ConsumeEffect.STREAM_CODEC`, in `consume_effect_type` registry order.
 static CONSUME_EFFECT: Shape = Dispatch(&[
-    Seq(&[List(&EFFECT), Float]), // apply_effects
-    HolderSet,                    // remove_effects
-    Unit,                         // clear_all_effects
-    Seq(&[Float, Bool]),          // teleport_randomly
+    Seq(&[List(&EFFECT), Float]),      // apply_effects
+    HolderSet,                         // remove_effects
+    Unit,                              // clear_all_effects
+    Seq(&[Float, Bool]),               // teleport_randomly
     Holder(&Seq(&[Str, Opt(&Float)])), // play_sound
 ]);
 static ENCHANTMENTS: Shape = Map(&VarInt, &VarInt);
 /// `BlockPredicate.STREAM_CODEC`.
 static BLOCK_PREDICATE: Shape = Seq(&[
     Opt(&HolderSet),
-    Opt(&List(&Seq(&[Str, Either(&Str, &Seq(&[Opt(&Str), Opt(&Str)]))]))),
+    Opt(&List(&Seq(&[
+        Str,
+        Either(&Str, &Seq(&[Opt(&Str), Opt(&Str)])),
+    ]))),
     Opt(&Nbt),
     List(&Typed),
     // DataComponentPredicate.Single: either kind of type ID, then a tag.
@@ -89,13 +92,31 @@ static SWING: Shape = Seq(&[VarInt, VarInt]);
 fn shape_of(name: &str) -> Option<&'static Shape> {
     static USE_EFFECTS: Shape = Seq(&[Bool, Bool, Float]);
     static LORE: Shape = List(&Nbt);
-    static ATTRIBUTE_MODIFIERS: Shape = List(&Seq(&[VarInt, Str, Double, VarInt, VarInt, Dispatch(&[Unit, Unit, Nbt])]));
+    static ATTRIBUTE_MODIFIERS: Shape = List(&Seq(&[
+        VarInt,
+        Str,
+        Double,
+        VarInt,
+        VarInt,
+        Dispatch(&[Unit, Unit, Nbt]),
+    ]));
     static CUSTOM_MODEL_DATA: Shape = Seq(&[List(&Float), List(&Bool), List(&Str), List(&Int)]);
     static TOOLTIP_DISPLAY: Shape = Seq(&[Bool, List(&VarInt)]);
     static FOOD: Shape = Seq(&[VarInt, Float, Bool]);
-    static CONSUMABLE: Shape = Seq(&[Float, VarInt, Holder(&Seq(&[Str, Opt(&Float)])), Bool, List(&CONSUME_EFFECT)]);
+    static CONSUMABLE: Shape = Seq(&[
+        Float,
+        VarInt,
+        Holder(&Seq(&[Str, Opt(&Float)])),
+        Bool,
+        List(&CONSUME_EFFECT),
+    ]);
     static USE_COOLDOWN: Shape = Seq(&[Float, Opt(&Str)]);
-    static TOOL: Shape = Seq(&[List(&Seq(&[HolderSet, Opt(&Float), Opt(&Bool)])), Float, VarInt, Bool]);
+    static TOOL: Shape = Seq(&[
+        List(&Seq(&[HolderSet, Opt(&Float), Opt(&Bool)])),
+        Float,
+        VarInt,
+        Bool,
+    ]);
     static WEAPON: Shape = Seq(&[VarInt, Float]);
     static ATTACK_RANGE: Shape = Seq(&[Float, Float, Float, Float, Float, Float]);
     static EQUIPPABLE: Shape = Seq(&[
@@ -137,18 +158,43 @@ fn shape_of(name: &str) -> Option<&'static Shape> {
     static POTION_CONTENTS: Shape = Seq(&[Opt(&VarInt), Opt(&Int), List(&EFFECT), Opt(&Str)]);
     static STEW: Shape = List(&Seq(&[VarInt, VarInt]));
     static WRITABLE_BOOK: Shape = List(&Seq(&[Str, Opt(&Str)]));
-    static WRITTEN_BOOK: Shape = Seq(&[Seq(&[Str, Opt(&Str)]), Str, VarInt, List(&Seq(&[Nbt, Opt(&Nbt)])), Bool]);
+    static WRITTEN_BOOK: Shape = Seq(&[
+        Seq(&[Str, Opt(&Str)]),
+        Str,
+        VarInt,
+        List(&Seq(&[Nbt, Opt(&Nbt)])),
+        Bool,
+    ]);
     static TRIM: Shape = Seq(&[Holder(&Seq(&[Str, Nbt])), Holder(&Seq(&[Str, Nbt, Bool]))]);
-    static INSTRUMENT: Shape = Holder(&Seq(&[Holder(&Seq(&[Str, Opt(&Float)])), Float, Float, VarInt, Nbt]));
-    static JUKEBOX: Shape = Holder(&Seq(&[Holder(&Seq(&[Str, Opt(&Float)])), Nbt, Float, VarInt]));
+    static INSTRUMENT: Shape = Holder(&Seq(&[
+        Holder(&Seq(&[Str, Opt(&Float)])),
+        Float,
+        Float,
+        VarInt,
+        Nbt,
+    ]));
+    static JUKEBOX: Shape = Holder(&Seq(&[
+        Holder(&Seq(&[Str, Opt(&Float)])),
+        Nbt,
+        Float,
+        VarInt,
+    ]));
     static LODESTONE: Shape = Seq(&[Opt(&Seq(&[Str, Long])), Bool]);
     static FIREWORKS: Shape = Seq(&[VarInt, List(&EXPLOSION)]);
     static PROFILE: Shape = Seq(&[
-        Either(&Seq(&[Uuid, Str, List(&Seq(&[Str, Str, Opt(&Str)]))]), &Seq(&[Opt(&Str), Opt(&Uuid), List(&Seq(&[Str, Str, Opt(&Str)]))])),
+        Either(
+            &Seq(&[Uuid, Str, List(&Seq(&[Str, Str, Opt(&Str)]))]),
+            &Seq(&[Opt(&Str), Opt(&Uuid), List(&Seq(&[Str, Str, Opt(&Str)]))]),
+        ),
         Seq(&[Opt(&Str), Opt(&Str), Opt(&Str), Opt(&Bool)]),
     ]);
     static BANNER_PATTERNS: Shape = List(&Seq(&[Holder(&Seq(&[Str, Str])), VarInt]));
-    static POT_DECORATIONS: Shape = Seq(&[Opt(&Template), Opt(&Template), Opt(&Template), Opt(&Template)]);
+    static POT_DECORATIONS: Shape = Seq(&[
+        Opt(&Template),
+        Opt(&Template),
+        Opt(&Template),
+        Opt(&Template),
+    ]);
     static CONTAINER: Shape = List(&Opt(&Template));
     static BLOCK_STATE: Shape = Map(&Str, &Str);
     static BEES: Shape = List(&Seq(&[Seq(&[VarInt, Nbt]), VarInt, VarInt]));
@@ -158,19 +204,59 @@ fn shape_of(name: &str) -> Option<&'static Shape> {
 
     Some(match name {
         // No network codec: the persistent codec, as a tag.
-        "custom_data" | "intangible_projectile" | "map_decorations" | "debug_stick_state" | "recipes" | "lock"
+        "custom_data"
+        | "intangible_projectile"
+        | "map_decorations"
+        | "debug_stick_state"
+        | "recipes"
+        | "lock"
         | "container_loot" => &Nbt,
-        "max_stack_size" | "max_damage" | "damage" | "repair_cost" | "enchantable" | "additional_trade_cost"
-        | "villager_food" | "map_id" | "map_post_processing" | "ominous_bottle_amplifier" | "rarity" | "dye"
+        "max_stack_size"
+        | "max_damage"
+        | "damage"
+        | "repair_cost"
+        | "enchantable"
+        | "additional_trade_cost"
+        | "villager_food"
+        | "map_id"
+        | "map_post_processing"
+        | "ominous_bottle_amplifier"
+        | "rarity"
+        | "dye"
         | "base_color" => &VarInt,
         // Registry holders and enums.
-        "damage_type" | "block_transformer" | "provides_pottery_pattern" | "villager/variant" | "wolf/variant"
-        | "wolf/sound_variant" | "wolf/collar" | "fox/variant" | "salmon/size" | "parrot/variant"
-        | "tropical_fish/pattern" | "tropical_fish/base_color" | "tropical_fish/pattern_color" | "mooshroom/variant"
-        | "rabbit/variant" | "pig/variant" | "pig/sound_variant" | "cow/variant" | "cow/sound_variant"
-        | "chicken/variant" | "chicken/sound_variant" | "zombie_nautilus/variant" | "frog/variant" | "horse/variant"
-        | "llama/variant" | "axolotl/variant" | "cat/variant" | "cat/sound_variant" | "cat/collar" | "sheep/color"
-        | "shulker/color" | "cushion/color" => &VarInt,
+        "damage_type"
+        | "block_transformer"
+        | "provides_pottery_pattern"
+        | "villager/variant"
+        | "wolf/variant"
+        | "wolf/sound_variant"
+        | "wolf/collar"
+        | "fox/variant"
+        | "salmon/size"
+        | "parrot/variant"
+        | "tropical_fish/pattern"
+        | "tropical_fish/base_color"
+        | "tropical_fish/pattern_color"
+        | "mooshroom/variant"
+        | "rabbit/variant"
+        | "pig/variant"
+        | "pig/sound_variant"
+        | "cow/variant"
+        | "cow/sound_variant"
+        | "chicken/variant"
+        | "chicken/sound_variant"
+        | "zombie_nautilus/variant"
+        | "frog/variant"
+        | "horse/variant"
+        | "llama/variant"
+        | "axolotl/variant"
+        | "cat/variant"
+        | "cat/sound_variant"
+        | "cat/collar"
+        | "sheep/color"
+        | "shulker/color"
+        | "cushion/color" => &VarInt,
         "unbreakable" | "creative_slot_lock" | "glider" | "waxed" => &Unit,
         "use_effects" => &USE_EFFECTS,
         "custom_name" | "item_name" | "bucket_entity_data" => &Nbt,
@@ -319,7 +405,10 @@ fn skip(shape: &Shape, buf: &mut &[u8], data: &ItemData) -> Result<(), DecodeErr
             let option = usize::try_from(index)
                 .ok()
                 .and_then(|i| options.get(i))
-                .ok_or(DecodeError::InvalidDiscriminant { ty: "component variant", value: index })?;
+                .ok_or(DecodeError::InvalidDiscriminant {
+                    ty: "component variant",
+                    value: index,
+                })?;
             skip(option, buf, data)?;
         }
         Template => {
@@ -407,7 +496,11 @@ pub struct ItemStack {
 impl ItemStack {
     /// A stack of an item with its default components.
     pub fn new(item: u32, count: i32) -> Self {
-        Self { item, count, patch: Patch::default() }
+        Self {
+            item,
+            count,
+            patch: Patch::default(),
+        }
     }
 
     /// `ItemStack.OPTIONAL_STREAM_CODEC`: `None` is the empty stack.
@@ -423,7 +516,10 @@ impl ItemStack {
 
     /// The item's name, such as `minecraft:elytra`.
     pub fn name(&self) -> &'static str {
-        ItemData::get().items.get(self.item as usize).map_or("minecraft:air", |i| i.name.as_str())
+        ItemData::get()
+            .items
+            .get(self.item as usize)
+            .map_or("minecraft:air", |i| i.name.as_str())
     }
 
     /// The encoded value of a component (`minecraft:damage`), from the
@@ -438,7 +534,10 @@ impl ItemStack {
             return None;
         }
         let defaults = &data.items.get(self.item as usize)?.components;
-        defaults.iter().find(|(t, _)| *t == ty).map(|(_, value)| value.as_slice())
+        defaults
+            .iter()
+            .find(|(t, _)| *t == ty)
+            .map(|(_, value)| value.as_slice())
     }
 
     pub fn has(&self, name: &str) -> bool {
@@ -461,12 +560,16 @@ impl ItemStack {
 
     /// `getDamageValue`.
     pub fn damage(&self) -> i32 {
-        self.var_int("minecraft:damage").unwrap_or(0).clamp(0, self.max_damage().max(0))
+        self.var_int("minecraft:damage")
+            .unwrap_or(0)
+            .clamp(0, self.max_damage().max(0))
     }
 
     /// `isDamageableItem`.
     pub fn is_damageable(&self) -> bool {
-        self.has("minecraft:max_damage") && !self.has("minecraft:unbreakable") && self.has("minecraft:damage")
+        self.has("minecraft:max_damage")
+            && !self.has("minecraft:unbreakable")
+            && self.has("minecraft:damage")
     }
 
     /// `nextDamageWillBreak`.
@@ -482,7 +585,9 @@ impl ItemStack {
     /// `LivingEntity.canGlideUsing`: an elytra (or anything with `glider`)
     /// worn in its slot that is not about to break.
     pub fn can_glide_in(&self, slot: EquipmentSlot) -> bool {
-        self.has("minecraft:glider") && self.equip_slot() == Some(slot) && !self.next_damage_will_break()
+        self.has("minecraft:glider")
+            && self.equip_slot() == Some(slot)
+            && !self.next_damage_will_break()
     }
 
     /// The `tool` component: how fast this digs what.
@@ -495,10 +600,14 @@ impl ItemStack {
         match (a, b) {
             (None, None) => true,
             (Some(a), Some(b)) => {
-                if a.item != b.item || a.patch.removed.len() != b.patch.removed.len() || a.patch.added.len() != b.patch.added.len() {
+                if a.item != b.item
+                    || a.patch.removed.len() != b.patch.removed.len()
+                    || a.patch.added.len() != b.patch.added.len()
+                {
                     return false;
                 }
-                a.patch.removed.iter().all(|t| b.patch.removed.contains(t)) && a.patch.added.iter().all(|c| b.patch.added.contains(c))
+                a.patch.removed.iter().all(|t| b.patch.removed.contains(t))
+                    && a.patch.added.iter().all(|c| b.patch.added.contains(c))
             }
             _ => false,
         }
@@ -535,7 +644,10 @@ impl BlockSet {
         let Some(count) = holder_set_count(buf)? else {
             return Ok(BlockSet::Tag(String::decode(buf)?));
         };
-        (0..count).map(|_| read_var_int(buf).map(|id| id as u32)).collect::<Result<_, _>>().map(BlockSet::Ids)
+        (0..count)
+            .map(|_| read_var_int(buf).map(|id| id as u32))
+            .collect::<Result<_, _>>()
+            .map(BlockSet::Ids)
     }
 
     pub fn contains(&self, block: u32, tags: &crate::tags::Tags) -> bool {
@@ -568,9 +680,21 @@ impl Tool {
         let mut rules = Vec::new();
         for _ in 0..count(buf)? {
             let blocks = BlockSet::decode(buf)?;
-            let speed = if bool::decode(buf)? { Some(f32::decode(buf)?) } else { None };
-            let correct_for_drops = if bool::decode(buf)? { Some(bool::decode(buf)?) } else { None };
-            rules.push(ToolRule { blocks, speed, correct_for_drops });
+            let speed = if bool::decode(buf)? {
+                Some(f32::decode(buf)?)
+            } else {
+                None
+            };
+            let correct_for_drops = if bool::decode(buf)? {
+                Some(bool::decode(buf)?)
+            } else {
+                None
+            };
+            rules.push(ToolRule {
+                blocks,
+                speed,
+                correct_for_drops,
+            });
         }
         Ok(Tool {
             rules,
@@ -590,7 +714,13 @@ impl Tool {
 
     /// `isCorrectForDrops`.
     pub fn is_correct_for_drops(&self, block: u32, tags: &crate::tags::Tags) -> bool {
-        self.rules.iter().find_map(|r| r.correct_for_drops.filter(|_| r.blocks.contains(block, tags))).unwrap_or(false)
+        self.rules
+            .iter()
+            .find_map(|r| {
+                r.correct_for_drops
+                    .filter(|_| r.blocks.contains(block, tags))
+            })
+            .unwrap_or(false)
     }
 }
 
@@ -622,7 +752,9 @@ struct RawItem {
 }
 
 fn unhex(s: &str) -> Vec<u8> {
-    (0..s.len() / 2).map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).expect("hex")).collect()
+    (0..s.len() / 2)
+        .map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).expect("hex"))
+        .collect()
 }
 
 impl ItemData {
@@ -634,10 +766,20 @@ impl ItemData {
     fn load() -> ItemData {
         let gz: &[u8] = include_bytes!("../data/items.json.gz");
         let mut json = String::new();
-        flate2::read::GzDecoder::new(gz).read_to_string(&mut json).expect("embedded item data");
+        flate2::read::GzDecoder::new(gz)
+            .read_to_string(&mut json)
+            .expect("embedded item data");
         let raw: RawItems = serde_json::from_str(&json).expect("embedded item data");
-        let shapes = raw.component_types.iter().map(|n| shape_of(n.strip_prefix("minecraft:").unwrap_or(n))).collect();
-        let mut data = ItemData { component_types: raw.component_types, shapes, items: Vec::new() };
+        let shapes = raw
+            .component_types
+            .iter()
+            .map(|n| shape_of(n.strip_prefix("minecraft:").unwrap_or(n)))
+            .collect();
+        let mut data = ItemData {
+            component_types: raw.component_types,
+            shapes,
+            items: Vec::new(),
+        };
         let items = raw
             .items
             .into_iter()
@@ -648,8 +790,15 @@ impl ItemData {
                 for _ in 0..count(&mut buf).expect("embedded item data") {
                     components.push(data.typed(&mut buf).expect("embedded item data"));
                 }
-                assert!(buf.is_empty(), "trailing bytes in the components of {}", item.name);
-                ItemInfo { name: item.name, components }
+                assert!(
+                    buf.is_empty(),
+                    "trailing bytes in the components of {}",
+                    item.name
+                );
+                ItemInfo {
+                    name: item.name,
+                    components,
+                }
             })
             .collect();
         data.items = items;
@@ -659,15 +808,26 @@ impl ItemData {
     /// Component types whose wire layout is not known: a stack carrying
     /// one cannot be decoded. Empty for the supported version.
     pub fn undecodable_types(&self) -> Vec<&str> {
-        self.component_types.iter().zip(&self.shapes).filter(|(_, s)| s.is_none()).map(|(n, _)| n.as_str()).collect()
+        self.component_types
+            .iter()
+            .zip(&self.shapes)
+            .filter(|(_, s)| s.is_none())
+            .map(|(n, _)| n.as_str())
+            .collect()
     }
 
     pub fn component_id(&self, name: &str) -> Option<u32> {
-        self.component_types.iter().position(|n| n == name).map(|i| i as u32)
+        self.component_types
+            .iter()
+            .position(|n| n == name)
+            .map(|i| i as u32)
     }
 
     pub fn item_id(&self, name: &str) -> Option<u32> {
-        self.items.iter().position(|i| i.name == name).map(|i| i as u32)
+        self.items
+            .iter()
+            .position(|i| i.name == name)
+            .map(|i| i as u32)
     }
 
     /// Reads a component type and its value, returning the value's bytes.
@@ -676,7 +836,10 @@ impl ItemData {
         let shape = usize::try_from(ty)
             .ok()
             .and_then(|i| self.shapes.get(i).copied().flatten())
-            .ok_or(DecodeError::InvalidDiscriminant { ty: "data component type", value: ty })?;
+            .ok_or(DecodeError::InvalidDiscriminant {
+                ty: "data component type",
+                value: ty,
+            })?;
         let start = *buf;
         skip(shape, buf, self)?;
         Ok((ty as u32, start[..start.len() - buf.len()].to_vec()))
@@ -702,12 +865,16 @@ mod tests {
             let mut skip_data = Vec::new();
             rapidbot_buf::VarInt(encoded).encode(&mut skip_data);
             let mut skip_data = skip_data.as_slice();
-            assert!(matches!(skip(&HolderSet, &mut skip_data, ItemData::get()), Err(error) if is_expected_error(&error)));
+            assert!(
+                matches!(skip(&HolderSet, &mut skip_data, ItemData::get()), Err(error) if is_expected_error(&error))
+            );
 
             let mut decode_data = Vec::new();
             rapidbot_buf::VarInt(encoded).encode(&mut decode_data);
             let mut decode_data = decode_data.as_slice();
-            assert!(matches!(BlockSet::decode(&mut decode_data), Err(error) if is_expected_error(&error)));
+            assert!(
+                matches!(BlockSet::decode(&mut decode_data), Err(error) if is_expected_error(&error))
+            );
         }
     }
 }

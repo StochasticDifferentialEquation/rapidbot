@@ -8,12 +8,12 @@ use std::time::Instant;
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Input::{
-    GetRawInputData, HRAWINPUT, RAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER, RID_INPUT, RIDEV_INPUTSINK, RIM_TYPEKEYBOARD,
-    RIM_TYPEMOUSE, RegisterRawInputDevices,
+    GetRawInputData, HRAWINPUT, RAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER, RID_INPUT,
+    RIDEV_INPUTSINK, RIM_TYPEKEYBOARD, RIM_TYPEMOUSE, RegisterRawInputDevices,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetForegroundWindow, GetMessageW, GetWindowTextW, HWND_MESSAGE,
-    MSG, RegisterClassW, WM_INPUT, WNDCLASSW,
+    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetForegroundWindow, GetMessageW,
+    GetWindowTextW, HWND_MESSAGE, MSG, RegisterClassW, WM_INPUT, WNDCLASSW,
 };
 
 struct Recorder {
@@ -110,7 +110,12 @@ impl Recorder {
     }
 }
 
-unsafe extern "system" fn window_proc(window: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn window_proc(
+    window: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     if message == WM_INPUT {
         let mut input: RAWINPUT = unsafe { std::mem::zeroed() };
         let mut size = size_of::<RAWINPUT>() as u32;
@@ -134,8 +139,13 @@ unsafe extern "system" fn window_proc(window: HWND, message: u32, wparam: WPARAM
 
 pub fn run(path: &str) -> std::io::Result<()> {
     let file = File::create(path)?;
-    *RECORDER.lock().unwrap() =
-        Some(Recorder { out: BufWriter::new(file), start: Instant::now(), focused: false, last_flush: Instant::now(), events: 0 });
+    *RECORDER.lock().unwrap() = Some(Recorder {
+        out: BufWriter::new(file),
+        start: Instant::now(),
+        focused: false,
+        last_flush: Instant::now(),
+        events: 0,
+    });
 
     unsafe {
         let class_name: Vec<u16> = "rapidbot-recorder\0".encode_utf16().collect();
@@ -170,10 +180,25 @@ pub fn run(path: &str) -> std::io::Result<()> {
         // Generic desktop page: usage 2 is mouse, 6 is keyboard. INPUTSINK
         // delivers input even though this window is never focused.
         let devices = [
-            RAWINPUTDEVICE { usUsagePage: 1, usUsage: 2, dwFlags: RIDEV_INPUTSINK, hwndTarget: window },
-            RAWINPUTDEVICE { usUsagePage: 1, usUsage: 6, dwFlags: RIDEV_INPUTSINK, hwndTarget: window },
+            RAWINPUTDEVICE {
+                usUsagePage: 1,
+                usUsage: 2,
+                dwFlags: RIDEV_INPUTSINK,
+                hwndTarget: window,
+            },
+            RAWINPUTDEVICE {
+                usUsagePage: 1,
+                usUsage: 6,
+                dwFlags: RIDEV_INPUTSINK,
+                hwndTarget: window,
+            },
         ];
-        if RegisterRawInputDevices(devices.as_ptr(), devices.len() as u32, size_of::<RAWINPUTDEVICE>() as u32) == 0 {
+        if RegisterRawInputDevices(
+            devices.as_ptr(),
+            devices.len() as u32,
+            size_of::<RAWINPUTDEVICE>() as u32,
+        ) == 0
+        {
             return Err(std::io::Error::last_os_error());
         }
 
