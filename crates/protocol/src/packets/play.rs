@@ -62,7 +62,10 @@ impl Decode for OptionalGameType {
             return Ok(Self(None));
         }
         if !(1..=4).contains(&v) {
-            return Err(rapidbot_buf::DecodeError::InvalidDiscriminant { ty: "optional game type", value: v });
+            return Err(rapidbot_buf::DecodeError::InvalidDiscriminant {
+                ty: "optional game type",
+                value: v,
+            });
         }
         let mut id: &[u8] = &[(v - 1) as u8];
         GameType::decode(&mut id).map(|g| Self(Some(g)))
@@ -157,7 +160,13 @@ impl LpVec3 {
 
 impl Encode for LpVec3 {
     fn encode(&self, buf: &mut Vec<u8>) {
-        let sanitize = |v: f64| if v.is_nan() { 0.0 } else { v.clamp(-1.7179869183e10, 1.7179869183e10) };
+        let sanitize = |v: f64| {
+            if v.is_nan() {
+                0.0
+            } else {
+                v.clamp(-1.7179869183e10, 1.7179869183e10)
+            }
+        };
         let (x, y, z) = (sanitize(self.x), sanitize(self.y), sanitize(self.z));
         let length = x.abs().max(y.abs()).max(z.abs());
         if length < 3.051944088384301e-5 {
@@ -168,7 +177,8 @@ impl Encode for LpVec3 {
         let partial = (scale & 3) != scale;
         let markers = if partial { scale & 3 | 4 } else { scale };
         let s = scale as f64;
-        let buffer = markers | Self::pack(x / s) << 3 | Self::pack(y / s) << 18 | Self::pack(z / s) << 33;
+        let buffer =
+            markers | Self::pack(x / s) << 3 | Self::pack(y / s) << 18 | Self::pack(z / s) << 33;
         buf.push(buffer as u8);
         buf.push((buffer >> 8) as u8);
         ((buffer >> 16) as i32).encode(buf);
@@ -192,7 +202,11 @@ impl Decode for LpVec3 {
             scale |= (rapidbot_buf::VarInt::decode(buf)?.0 as u32 as i64) << 2;
         }
         let s = scale as f64;
-        Ok(Self { x: Self::unpack(buffer >> 3) * s, y: Self::unpack(buffer >> 18) * s, z: Self::unpack(buffer >> 33) * s })
+        Ok(Self {
+            x: Self::unpack(buffer >> 3) * s,
+            y: Self::unpack(buffer >> 18) * s,
+            z: Self::unpack(buffer >> 33) * s,
+        })
     }
 }
 
@@ -285,7 +299,12 @@ pub mod clientbound {
         pub z: i32,
         pub data: RemainingBytes,
     }
-    packet!(LevelChunkWithLight, play, clientbound, LEVEL_CHUNK_WITH_LIGHT);
+    packet!(
+        LevelChunkWithLight,
+        play,
+        clientbound,
+        LEVEL_CHUNK_WITH_LIGHT
+    );
 
     /// `ClientboundForgetLevelChunkPacket`: `ChunkPos.pack`, x in the low 32
     /// bits and z in the high.
@@ -326,7 +345,12 @@ pub mod clientbound {
         #[var]
         pub z: i32,
     }
-    packet!(SetChunkCacheCenter, play, clientbound, SET_CHUNK_CACHE_CENTER);
+    packet!(
+        SetChunkCacheCenter,
+        play,
+        clientbound,
+        SET_CHUNK_CACHE_CENTER
+    );
 
     /// `ClientboundStartConfigurationPacket`: go back to configuration.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
@@ -358,7 +382,12 @@ pub mod clientbound {
         pub section: i64,
         pub updates: Vec<rapidbot_buf::VarLong>,
     }
-    packet!(SectionBlocksUpdate, play, clientbound, SECTION_BLOCKS_UPDATE);
+    packet!(
+        SectionBlocksUpdate,
+        play,
+        clientbound,
+        SECTION_BLOCKS_UPDATE
+    );
 
     /// `ClientboundUpdateAttributesPacket`.
     #[derive(Debug, Clone, PartialEq, Encode, Decode)]
@@ -457,8 +486,18 @@ pub mod clientbound {
             use rapidbot_buf::VarInt;
             let from_anchor = VarInt::decode(buf)?.0;
             let (x, y, z) = (f64::decode(buf)?, f64::decode(buf)?, f64::decode(buf)?);
-            let entity = if bool::decode(buf)? { Some((VarInt::decode(buf)?.0, VarInt::decode(buf)?.0)) } else { None };
-            Ok(Self { from_anchor, x, y, z, entity })
+            let entity = if bool::decode(buf)? {
+                Some((VarInt::decode(buf)?.0, VarInt::decode(buf)?.0))
+            } else {
+                None
+            };
+            Ok(Self {
+                from_anchor,
+                x,
+                y,
+                z,
+                entity,
+            })
         }
     }
 
@@ -573,7 +612,12 @@ pub mod serverbound {
     pub struct MovePlayerStatusOnly {
         pub flags: u8,
     }
-    packet!(MovePlayerStatusOnly, play, serverbound, MOVE_PLAYER_STATUS_ONLY);
+    packet!(
+        MovePlayerStatusOnly,
+        play,
+        serverbound,
+        MOVE_PLAYER_STATUS_ONLY
+    );
 
     /// `ServerboundPlayerInputPacket`.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
@@ -665,7 +709,11 @@ pub mod serverbound {
             let offset = VarInt::decode(buf)?.0;
             let bits = rapidbot_buf::take(buf, 3)?;
             let acknowledged = u32::from_le_bytes([bits[0], bits[1], bits[2], 0]);
-            Ok(Self { offset, acknowledged, checksum: u8::decode(buf)? })
+            Ok(Self {
+                offset,
+                acknowledged,
+                checksum: u8::decode(buf)?,
+            })
         }
     }
 
@@ -700,7 +748,11 @@ pub mod serverbound {
                 message: String::decode(buf)?,
                 timestamp: i64::decode(buf)?,
                 salt: i64::decode(buf)?,
-                signature: if bool::decode(buf)? { Some(read_signature(buf)?) } else { None },
+                signature: if bool::decode(buf)? {
+                    Some(read_signature(buf)?)
+                } else {
+                    None
+                },
                 last_seen: LastSeenUpdate::decode(buf)?,
             })
         }
@@ -752,7 +804,13 @@ pub mod serverbound {
             for _ in 0..count {
                 signatures.push((String::decode(buf)?, read_signature(buf)?));
             }
-            Ok(Self { command, timestamp, salt, signatures, last_seen: LastSeenUpdate::decode(buf)? })
+            Ok(Self {
+                command,
+                timestamp,
+                salt,
+                signatures,
+                last_seen: LastSeenUpdate::decode(buf)?,
+            })
         }
     }
     packet!(ChatCommandSigned, play, serverbound, CHAT_COMMAND_SIGNED);
@@ -851,7 +909,12 @@ pub mod serverbound {
     /// `ServerboundConfigurationAcknowledgedPacket`.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
     pub struct ConfigurationAcknowledged;
-    packet!(ConfigurationAcknowledged, play, serverbound, CONFIGURATION_ACKNOWLEDGED);
+    packet!(
+        ConfigurationAcknowledged,
+        play,
+        serverbound,
+        CONFIGURATION_ACKNOWLEDGED
+    );
 }
 
 #[cfg(test)]
@@ -866,7 +929,10 @@ mod tests {
             (4, OptionalGameType(Some(GameType::Spectator))),
         ] {
             let bytes = rapidbot_buf::to_bytes(&rapidbot_buf::VarInt(wire));
-            assert_eq!(OptionalGameType::decode(&mut bytes.as_slice()), Ok(expected));
+            assert_eq!(
+                OptionalGameType::decode(&mut bytes.as_slice()),
+                Ok(expected)
+            );
         }
 
         for wire in [5, 257, i32::MAX, i32::MIN] {
@@ -880,8 +946,17 @@ mod tests {
 
     #[test]
     fn lp_vec3_roundtrip() {
-        for v in [(0.0, 0.0, 0.0), (0.1, -0.0784, 0.0), (0.0, 0.42, -0.9), (3.5, -12.0, 100.25)] {
-            let lp = LpVec3 { x: v.0, y: v.1, z: v.2 };
+        for v in [
+            (0.0, 0.0, 0.0),
+            (0.1, -0.0784, 0.0),
+            (0.0, 0.42, -0.9),
+            (3.5, -12.0, 100.25),
+        ] {
+            let lp = LpVec3 {
+                x: v.0,
+                y: v.1,
+                z: v.2,
+            };
             let bytes = rapidbot_buf::to_bytes(&lp);
             let back = LpVec3::decode(&mut bytes.as_slice()).unwrap();
             let scale = v.0.abs().max(v.1.abs()).max(v.2.abs()).ceil().max(1.0);

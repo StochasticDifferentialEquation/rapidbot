@@ -32,7 +32,12 @@ impl Tags {
 
     /// Adds an element to a tag (tests, and worlds built without a server).
     pub fn insert(&mut self, registry: &str, tag: &str, id: u32) {
-        self.registries.entry(registry.to_owned()).or_default().entry(tag.to_owned()).or_default().insert(id);
+        self.registries
+            .entry(registry.to_owned())
+            .or_default()
+            .entry(tag.to_owned())
+            .or_default()
+            .insert(id);
     }
 
     pub fn contains(&self, registry: &str, tag: &str, id: u32) -> bool {

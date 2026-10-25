@@ -90,13 +90,21 @@ impl EntityKind {
     }
 
     fn new(update_interval: u32, classes: &str) -> Self {
-        let classes: Vec<String> = classes.split(' ').filter(|c| !c.is_empty()).map(str::to_owned).collect();
+        let classes: Vec<String> = classes
+            .split(' ')
+            .filter(|c| !c.is_empty())
+            .map(str::to_owned)
+            .collect();
         let is = |class: &str| classes.iter().any(|c| c == class);
         let interpolation = if is("Shulker") {
             Interpolation::Snap
         } else if is("LivingEntity") {
             Interpolation::Stepped
-        } else if is("AbstractBoat") || is("AbstractMinecart") || is("ExperienceOrb") || is("FishingHook") {
+        } else if is("AbstractBoat")
+            || is("AbstractMinecart")
+            || is("ExperienceOrb")
+            || is("FishingHook")
+        {
             // Minecarts use NO_OP with the experimental movement feature.
             Interpolation::Linear(3)
         } else {
@@ -104,7 +112,12 @@ impl EntityKind {
             Interpolation::Snap
         };
         let living = is("LivingEntity");
-        Self { update_interval, classes, interpolation, living }
+        Self {
+            update_interval,
+            classes,
+            interpolation,
+            living,
+        }
     }
 }
 
@@ -137,15 +150,25 @@ impl Registry {
     fn load() -> Registry {
         let gz: &[u8] = include_bytes!("../data/blocks.json.gz");
         let mut json = String::new();
-        flate2::read::GzDecoder::new(gz).read_to_string(&mut json).expect("embedded block data");
+        flate2::read::GzDecoder::new(gz)
+            .read_to_string(&mut json)
+            .expect("embedded block data");
         let raw: RawData = serde_json::from_str(&json).expect("embedded block data");
 
         let shapes = raw
             .shapes
             .into_iter()
             .map(|s| match s {
-                None => Shape::new([vec![0.0, 1.0], vec![0.0, 1.0], vec![0.0, 1.0]], vec![false], false),
-                Some(s) => Shape::new([s.x, s.y, s.z], s.fill.bytes().map(|b| b == b'1').collect(), s.block),
+                None => Shape::new(
+                    [vec![0.0, 1.0], vec![0.0, 1.0], vec![0.0, 1.0]],
+                    vec![false],
+                    false,
+                ),
+                Some(s) => Shape::new(
+                    [s.x, s.y, s.z],
+                    s.fill.bytes().map(|b| b == b'1').collect(),
+                    s.block,
+                ),
             })
             .collect();
         let mut blocks: Vec<BlockInfo> = raw
@@ -165,20 +188,35 @@ impl Registry {
         let states = raw
             .states
             .into_iter()
-            .map(|(block, shape, air, large, fluid, amount, falling, properties, face_flags, outline, hardness, interaction)| StateInfo {
-                block,
-                shape,
-                is_air: air != 0,
-                has_large_collision_shape: large != 0,
-                fluid,
-                fluid_amount: amount,
-                fluid_falling: falling != 0,
-                properties,
-                face_flags,
-                outline,
-                hardness,
-                interaction,
-            })
+            .map(
+                |(
+                    block,
+                    shape,
+                    air,
+                    large,
+                    fluid,
+                    amount,
+                    falling,
+                    properties,
+                    face_flags,
+                    outline,
+                    hardness,
+                    interaction,
+                )| StateInfo {
+                    block,
+                    shape,
+                    is_air: air != 0,
+                    has_large_collision_shape: large != 0,
+                    fluid,
+                    fluid_amount: amount,
+                    fluid_falling: falling != 0,
+                    properties,
+                    face_flags,
+                    outline,
+                    hardness,
+                    interaction,
+                },
+            )
             .collect();
         let mut attributes = raw.attributes;
         attributes.sort_by_key(|a| a.id);
@@ -187,7 +225,11 @@ impl Registry {
             attributes,
             entity_types: raw.entity_types,
             entity_dimensions: raw.entity_dimensions,
-            entity_kinds: raw.entity_info.iter().map(|(interval, classes)| EntityKind::new(*interval, classes)).collect(),
+            entity_kinds: raw
+                .entity_info
+                .iter()
+                .map(|(interval, classes)| EntityKind::new(*interval, classes))
+                .collect(),
             mob_effects: raw.mob_effects,
             command_argument_types: raw.command_argument_types,
             items: raw.items,
@@ -308,6 +350,9 @@ mod tests {
         let ice = r.block_by_name("minecraft:ice").unwrap();
         assert_eq!(ice.friction, 0.98);
         assert!(r.collision_shape(AIR).is_none());
-        assert!(r.collision_shape(1).unwrap().is_block, "stone is a full cube");
+        assert!(
+            r.collision_shape(1).unwrap().is_block,
+            "stone is a full cube"
+        );
     }
 }

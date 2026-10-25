@@ -76,7 +76,11 @@ impl Fighter {
 
     fn next_swing(&mut self) {
         self.swing_in = None;
-        self.wanted_charge = if self.noise.chance(0.85) { 1.0 } else { self.noise.uniform(0.8, 1.0) as f32 };
+        self.wanted_charge = if self.noise.chance(0.85) {
+            1.0
+        } else {
+            self.noise.uniform(0.8, 1.0) as f32
+        };
     }
 
     /// One tick of fighting. Sets the aim and the movement keys, and asks
@@ -97,7 +101,11 @@ impl Fighter {
             self.reroll_in -= 1;
         }
         let (min, max) = entity.bounding_box();
-        let body = Vec3::new(entity.pos.x, min[1] + (max[1] - min[1]) * self.aim_height, entity.pos.z);
+        let body = Vec3::new(
+            entity.pos.x,
+            min[1] + (max[1] - min[1]) * self.aim_height,
+            entity.pos.z,
+        );
         let eye = ctx.player.eye_position();
         let horizontal = ((body.x - eye.x).powi(2) + (body.z - eye.z).powi(2)).sqrt();
         // A point the crosshair can actually land on, if there is one.
@@ -108,13 +116,21 @@ impl Fighter {
             // Keep running at it until well inside reach, as people do:
             // the first hit of an approach is usually a sprint hit.
             let forward = horizontal > self.keep_distance;
-            ctx.set_keys(Keys { forward, sprint: forward && self.sprint, ..Keys::default() });
+            ctx.set_keys(Keys {
+                forward,
+                sprint: forward && self.sprint,
+                ..Keys::default()
+            });
         }
 
         let on_target = ctx.target.is_some_and(|hit| hit.id == id);
         if !on_target {
             self.swing_in = None;
-            return if reachable.is_some() { FightStatus::Engaged } else { FightStatus::Approaching };
+            return if reachable.is_some() {
+                FightStatus::Engaged
+            } else {
+                FightStatus::Approaching
+            };
         }
         if ctx.attack_strength < self.wanted_charge {
             return FightStatus::Engaged;

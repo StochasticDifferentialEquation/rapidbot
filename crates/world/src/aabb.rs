@@ -109,11 +109,25 @@ impl Aabb {
     }
 
     pub fn move_by(&self, xa: f64, ya: f64, za: f64) -> Self {
-        Self::new(self.min_x + xa, self.min_y + ya, self.min_z + za, self.max_x + xa, self.max_y + ya, self.max_z + za)
+        Self::new(
+            self.min_x + xa,
+            self.min_y + ya,
+            self.min_z + za,
+            self.max_x + xa,
+            self.max_y + ya,
+            self.max_z + za,
+        )
     }
 
     pub fn inflate(&self, x: f64, y: f64, z: f64) -> Self {
-        Self::new(self.min_x - x, self.min_y - y, self.min_z - z, self.max_x + x, self.max_y + y, self.max_z + z)
+        Self::new(
+            self.min_x - x,
+            self.min_y - y,
+            self.min_z - z,
+            self.max_x + x,
+            self.max_y + y,
+            self.max_z + z,
+        )
     }
 
     pub fn deflate(&self, x: f64, y: f64, z: f64) -> Self {
@@ -121,15 +135,27 @@ impl Aabb {
     }
 
     pub fn set_min_y(&self, min_y: f64) -> Self {
-        Self::new(self.min_x, min_y, self.min_z, self.max_x, self.max_y, self.max_z)
+        Self::new(
+            self.min_x, min_y, self.min_z, self.max_x, self.max_y, self.max_z,
+        )
     }
 
     pub fn set_max_y(&self, max_y: f64) -> Self {
-        Self::new(self.min_x, self.min_y, self.min_z, self.max_x, max_y, self.max_z)
+        Self::new(
+            self.min_x, self.min_y, self.min_z, self.max_x, max_y, self.max_z,
+        )
     }
 
     /// `intersects(double...)`: strict on every axis.
-    pub fn intersects(&self, min_x: f64, min_y: f64, min_z: f64, max_x: f64, max_y: f64, max_z: f64) -> bool {
+    pub fn intersects(
+        &self,
+        min_x: f64,
+        min_y: f64,
+        min_z: f64,
+        max_x: f64,
+        max_y: f64,
+        max_z: f64,
+    ) -> bool {
         self.min_x < max_x
             && self.max_x > min_x
             && self.min_y < max_y

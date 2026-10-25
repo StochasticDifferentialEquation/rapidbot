@@ -99,22 +99,31 @@ pub async fn resolve(input: &str) -> Result<ResolvedAddress, ResolveError> {
     };
 
     let handshake_host = if host.parse::<IpAddr>().is_ok() {
-        reverse_confirmed(&resolver, ip).await.unwrap_or_else(|| ip.to_string())
+        reverse_confirmed(&resolver, ip)
+            .await
+            .unwrap_or_else(|| ip.to_string())
     } else {
         host
     };
 
-    Ok(ResolvedAddress { socket: SocketAddr::new(ip, port), handshake_host, handshake_port: port })
+    Ok(ResolvedAddress {
+        socket: SocketAddr::new(ip, port),
+        handshake_host,
+        handshake_port: port,
+    })
 }
 
 /// `InetAddress.getHostFromNameService`: PTR lookup, then accept the name
 /// only if it resolves back to the same address.
 async fn reverse_confirmed(resolver: &TokioResolver, ip: IpAddr) -> Option<String> {
     let lookup = resolver.reverse_lookup(ip).await.ok()?;
-    let record = lookup.as_lookup().record_iter().find_map(|r| match r.data() {
-        RData::PTR(ptr) => Some(ptr.0.to_string()),
-        _ => None,
-    })?;
+    let record = lookup
+        .as_lookup()
+        .record_iter()
+        .find_map(|r| match r.data() {
+            RData::PTR(ptr) => Some(ptr.0.to_string()),
+            _ => None,
+        })?;
     // Java returns the name without the trailing dot here.
     let name = record.trim_end_matches('.').to_owned();
     system_lookup(&name).await.contains(&ip).then_some(name)
@@ -135,8 +144,14 @@ mod tests {
 
     #[test]
     fn parsing() {
-        assert_eq!(parse_address("example.net").unwrap(), ("example.net".into(), 25565));
-        assert_eq!(parse_address("example.net:25566").unwrap(), ("example.net".into(), 25566));
+        assert_eq!(
+            parse_address("example.net").unwrap(),
+            ("example.net".into(), 25565)
+        );
+        assert_eq!(
+            parse_address("example.net:25566").unwrap(),
+            ("example.net".into(), 25566)
+        );
         assert_eq!(parse_address("[::1]:1234").unwrap(), ("::1".into(), 1234));
         assert_eq!(parse_address("::1").unwrap(), ("::1".into(), 25565));
         assert!(parse_address(":25565").is_err());

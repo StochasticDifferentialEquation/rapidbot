@@ -15,12 +15,19 @@ pub(crate) async fn login(
     config: &ClientConfig,
     session: &mut SessionData,
 ) -> Result<(GameProfile, Uuid), ClientError> {
-    conn.send(&sb::Hello { name: config.account.name().into(), profile_id: config.account.uuid() })
-        .await?;
+    conn.send(&sb::Hello {
+        name: config.account.name().into(),
+        profile_id: config.account.uuid(),
+    })
+    .await?;
 
     loop {
         let packet = conn.recv().await?;
-        trace!(id = packet.id, name = State::Login.packet_name(rapidbot_protocol::Direction::Clientbound, packet.id), "login packet");
+        trace!(
+            id = packet.id,
+            name = State::Login.packet_name(rapidbot_protocol::Direction::Clientbound, packet.id),
+            "login packet"
+        );
         match packet.id {
             cb::Hello::ID => {
                 let hello = packet.decode::<cb::Hello>()?;
@@ -31,7 +38,8 @@ pub(crate) async fn login(
                     let crate::Account::Microsoft(account) = &config.account else {
                         return Err(ClientError::AuthenticationRequired);
                     };
-                    let hash = crypto::server_hash(&hello.server_id.0, &secret, &hello.public_key.0);
+                    let hash =
+                        crypto::server_hash(&hello.server_id.0, &secret, &hello.public_key.0);
                     rapidbot_auth::join_server(&account.access_token, account.id, &hash).await?;
                     debug!("session join accepted");
                 }
@@ -40,7 +48,10 @@ pub(crate) async fn login(
                         .map(ByteArray)
                         .map_err(|e| ClientError::Encryption(e.to_string()))
                 };
-                let key = sb::Key { key: encrypt(&secret)?, encrypted_challenge: encrypt(&hello.challenge.0)? };
+                let key = sb::Key {
+                    key: encrypt(&secret)?,
+                    encrypted_challenge: encrypt(&hello.challenge.0)?,
+                };
                 // The cipher is installed once the key packet has been written.
                 conn.send(&key).await?;
                 conn.enable_encryption(&secret);
@@ -54,7 +65,11 @@ pub(crate) async fn login(
             cb::CustomQuery::ID => {
                 let query = packet.decode::<cb::CustomQuery>()?;
                 debug!(channel = %query.channel, "custom query (answering unknown)");
-                conn.send(&sb::CustomQueryAnswer { transaction_id: query.transaction_id, payload: None }).await?;
+                conn.send(&sb::CustomQueryAnswer {
+                    transaction_id: query.transaction_id,
+                    payload: None,
+                })
+                .await?;
             }
             cb::CookieRequest::ID => {
                 let key = packet.decode::<cb::CookieRequest>()?.key;
@@ -71,11 +86,14 @@ pub(crate) async fn login(
                 // then brand and client information, each flushed.
                 conn.send(&sb::LoginAcknowledged).await?;
                 send_brand(conn).await?;
-                conn.send(&config_sb::ClientInformation(config.information.clone())).await?;
+                conn.send(&config_sb::ClientInformation(config.information.clone()))
+                    .await?;
                 return Ok((finished.profile, finished.session_id));
             }
             other => {
-                return Err(ClientError::Protocol(format!("unexpected login packet {other}")));
+                return Err(ClientError::Protocol(format!(
+                    "unexpected login packet {other}"
+                )));
             }
         }
     }

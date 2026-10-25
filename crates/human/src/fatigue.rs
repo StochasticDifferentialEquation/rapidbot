@@ -17,7 +17,12 @@ pub struct Fatigue {
 
 impl Default for Fatigue {
     fn default() -> Self {
-        Self { level: 0.0, arousal: 0.0, build_time: 3600.0, recovery_time: 600.0 }
+        Self {
+            level: 0.0,
+            arousal: 0.0,
+            build_time: 3600.0,
+            recovery_time: 600.0,
+        }
     }
 }
 

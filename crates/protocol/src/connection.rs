@@ -43,7 +43,11 @@ impl RawPacket {
     pub fn decode<P: Packet>(&self) -> Result<P, DecodeError> {
         debug_assert_eq!(P::DIRECTION, Direction::Clientbound);
         if self.id != P::ID {
-            return Err(DecodeError::Custom(format!("expected packet {}, got {}", P::ID, self.id)));
+            return Err(DecodeError::Custom(format!(
+                "expected packet {}, got {}",
+                P::ID,
+                self.id
+            )));
         }
         P::from_body(&self.body)
     }
@@ -64,8 +68,16 @@ impl Connection {
         stream.set_nodelay(true)?;
         let (read, write) = stream.into_split();
         Ok(Self {
-            reader: Reader { stream: read, decoder: FrameDecoder::default(), read_buf: vec![0; 64 * 1024] },
-            writer: Writer { stream: write, encoder: FrameEncoder::default(), pending: Vec::new() },
+            reader: Reader {
+                stream: read,
+                decoder: FrameDecoder::default(),
+                read_buf: vec![0; 64 * 1024],
+            },
+            writer: Writer {
+                stream: write,
+                encoder: FrameEncoder::default(),
+                pending: Vec::new(),
+            },
         })
     }
 
@@ -139,7 +151,8 @@ impl Writer {
     /// the next [`flush`](Self::flush), in one TCP write.
     pub fn queue<P: Packet>(&mut self, packet: &P) -> Result<(), ConnectionError> {
         debug_assert_eq!(P::DIRECTION, Direction::Serverbound);
-        self.encoder.encode(&packet.to_frame_bytes(), &mut self.pending)?;
+        self.encoder
+            .encode(&packet.to_frame_bytes(), &mut self.pending)?;
         Ok(())
     }
 

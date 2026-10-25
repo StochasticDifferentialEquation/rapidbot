@@ -17,15 +17,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let address = args.first().cloned().unwrap_or_else(|| "localhost".into());
     let account = match args.get(1).map(String::as_str) {
         Some("--microsoft") => {
-            let cache = args.get(2).cloned().unwrap_or_else(|| "accounts/main.json".into());
+            let cache = args
+                .get(2)
+                .cloned()
+                .unwrap_or_else(|| "accounts/main.json".into());
             let mut auth = rapidbot_auth::Authenticator::new(&cache)?;
             let account = auth
-                .login(|code| println!("Sign in at {} with code {}", code.verification_uri, code.user_code))
+                .login(|code| {
+                    println!(
+                        "Sign in at {} with code {}",
+                        code.verification_uri, code.user_code
+                    )
+                })
                 .await?;
             Account::Microsoft(account)
         }
         Some(name) => Account::Offline { name: name.into() },
-        None => Account::Offline { name: "rapidbot".into() },
+        None => Account::Offline {
+            name: "rapidbot".into(),
+        },
     };
 
     let reason = rapidbot_client::run(ClientConfig::new(address, account)).await;

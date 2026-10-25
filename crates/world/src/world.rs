@@ -13,9 +13,18 @@ pub struct DimensionHeight {
 }
 
 impl DimensionHeight {
-    pub const OVERWORLD: Self = Self { min_y: -64, height: 384 };
-    pub const NETHER: Self = Self { min_y: 0, height: 256 };
-    pub const END: Self = Self { min_y: 0, height: 256 };
+    pub const OVERWORLD: Self = Self {
+        min_y: -64,
+        height: 384,
+    };
+    pub const NETHER: Self = Self {
+        min_y: 0,
+        height: 256,
+    };
+    pub const END: Self = Self {
+        min_y: 0,
+        height: 256,
+    };
 
     /// Vanilla dimension types by name, for registries sent without data
     /// because the client has them from the core pack.
@@ -40,7 +49,10 @@ pub struct World {
 
 impl World {
     pub fn new(height: DimensionHeight) -> Self {
-        Self { height, chunks: HashMap::new() }
+        Self {
+            height,
+            chunks: HashMap::new(),
+        }
     }
 
     pub fn insert_chunk(&mut self, x: i32, z: i32, chunk: Chunk) {
@@ -88,7 +100,12 @@ impl World {
         if let Some(chunk) = self.chunks.get_mut(&(x >> 4, z >> 4)) {
             let section = ((y - self.height.min_y) >> 4) as usize;
             if let Some(s) = chunk.sections.get_mut(section) {
-                s.set((x & 15) as usize, (y & 15) as usize, (z & 15) as usize, state);
+                s.set(
+                    (x & 15) as usize,
+                    (y & 15) as usize,
+                    (z & 15) as usize,
+                    state,
+                );
             }
         }
     }

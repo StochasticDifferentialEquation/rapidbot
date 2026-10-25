@@ -13,9 +13,21 @@ use crate::ClientError;
 /// plus the feature packs in `data/minecraft/datapacks`).
 pub const VANILLA_KNOWN_PACKS: &[(&str, &str, &str)] = &[
     ("minecraft", "core", rapidbot_protocol::VERSION_NAME),
-    ("minecraft", "minecart_improvements", rapidbot_protocol::VERSION_NAME),
-    ("minecraft", "redstone_experiments", rapidbot_protocol::VERSION_NAME),
-    ("minecraft", "trade_rebalance", rapidbot_protocol::VERSION_NAME),
+    (
+        "minecraft",
+        "minecart_improvements",
+        rapidbot_protocol::VERSION_NAME,
+    ),
+    (
+        "minecraft",
+        "redstone_experiments",
+        rapidbot_protocol::VERSION_NAME,
+    ),
+    (
+        "minecraft",
+        "trade_rebalance",
+        rapidbot_protocol::VERSION_NAME,
+    ),
 ];
 
 fn is_known(pack: &KnownPack) -> bool {
@@ -50,10 +62,13 @@ impl Game {
                 self.session.registries.push((data.registry, data.entries));
             }
             cb::UpdateTags::ID => {
-                self.session.tags.push(packet.decode::<cb::UpdateTags>()?.data.0);
+                self.session
+                    .tags
+                    .push(packet.decode::<cb::UpdateTags>()?.data.0);
             }
             cb::UpdateEnabledFeatures::ID => {
-                self.session.enabled_features = packet.decode::<cb::UpdateEnabledFeatures>()?.features;
+                self.session.enabled_features =
+                    packet.decode::<cb::UpdateEnabledFeatures>()?.features;
             }
             cb::CookieRequest::ID => {
                 let key = packet.decode::<cb::CookieRequest>()?.key;
@@ -76,7 +91,9 @@ impl Game {
             }
             cb::CodeOfConduct::ID => {
                 if self.seen_code_of_conduct {
-                    return Err(ClientError::Protocol("server sent duplicate code of conduct".into()));
+                    return Err(ClientError::Protocol(
+                        "server sent duplicate code of conduct".into(),
+                    ));
                 }
                 self.seen_code_of_conduct = true;
                 if self.config.code_of_conduct_accepted {
@@ -86,14 +103,20 @@ impl Game {
                     // The screen shows the text with "Acknowledge" under
                     // it: a person at least skims it before clicking.
                     let length = packet.body.len() as f64;
-                    let seconds = self.noise.lognormal(3.5, 0.5).clamp(1.2, 30.0) + (length * 0.004).min(12.0);
+                    let seconds = self.noise.lognormal(3.5, 0.5).clamp(1.2, 30.0)
+                        + (length * 0.004).min(12.0);
                     debug!(seconds, "reading the code of conduct");
-                    self.conduct_click = Some(std::time::Instant::now() + std::time::Duration::from_secs_f64(seconds));
+                    self.conduct_click = Some(
+                        std::time::Instant::now() + std::time::Duration::from_secs_f64(seconds),
+                    );
                 }
             }
             cb::Transfer::ID => {
                 let t = packet.decode::<cb::Transfer>()?;
-                return Err(ClientError::Transfer { host: t.host, port: t.port });
+                return Err(ClientError::Transfer {
+                    host: t.host,
+                    port: t.port,
+                });
             }
             cb::FinishConfiguration::ID => {
                 self.net.send(&sb::FinishConfiguration);
@@ -102,7 +125,10 @@ impl Game {
             other => {
                 // Reset chat, server links, report details, dialogs, post
                 // effects: nothing to answer.
-                if State::Configuration.packet_name(Direction::Clientbound, other).is_none() {
+                if State::Configuration
+                    .packet_name(Direction::Clientbound, other)
+                    .is_none()
+                {
                     warn!(id = other, "unknown configuration packet");
                 }
             }

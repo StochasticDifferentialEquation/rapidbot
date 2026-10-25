@@ -35,7 +35,9 @@ const MAX_REDIRECTS: usize = 20;
 enum Prompt {
     Pending,
     /// The confirm screen is up; the player clicks at `until`.
-    Showing { until: Instant },
+    Showing {
+        until: Instant,
+    },
     Allowed,
     Declined,
 }
@@ -45,7 +47,9 @@ enum Download {
     /// Not started: the prompt has not been answered.
     Waiting,
     Running,
-    Done { valid: bool },
+    Done {
+        valid: bool,
+    },
     Failed,
 }
 
@@ -95,7 +99,13 @@ pub(crate) struct PackTurn {
 }
 
 impl PackManager {
-    pub fn new(policy: ResourcePackPolicy, username: String, profile: Uuid, cache: Option<PathBuf>, seed: u64) -> Self {
+    pub fn new(
+        policy: ResourcePackPolicy,
+        username: String,
+        profile: Uuid,
+        cache: Option<PathBuf>,
+        seed: u64,
+    ) -> Self {
         let (results_tx, results) = channel();
         Self {
             policy,
@@ -105,7 +115,11 @@ impl PackManager {
             noise: Noise::new(seed),
             // `ServerData.ServerPackStatus`: a saved server set to
             // "enabled" skips the prompt.
-            prompt: if policy == ResourcePackPolicy::Enabled { Prompt::Allowed } else { Prompt::Pending },
+            prompt: if policy == ResourcePackPolicy::Enabled {
+                Prompt::Allowed
+            } else {
+                Prompt::Pending
+            },
             packs: Vec::new(),
             results_tx,
             results,
@@ -131,7 +145,8 @@ impl PackManager {
             }
         };
         // tryParseSha1AsHash: anything else means "no hash".
-        let hash = (hash.len() == 40 && hash.bytes().all(|b| b.is_ascii_hexdigit())).then(|| hash.to_ascii_lowercase());
+        let hash = (hash.len() == 40 && hash.bytes().all(|b| b.is_ascii_hexdigit()))
+            .then(|| hash.to_ascii_lowercase());
         info!(%url, required, "server resource pack");
 
         match self.prompt {
@@ -145,13 +160,22 @@ impl PackManager {
                 // required pack is a quicker decision.
                 let median = if required { 2.2 } else { 3.0 };
                 let delay = self.noise.lognormal(median, 0.45).clamp(0.9, 15.0);
-                self.prompt = Prompt::Showing { until: Instant::now() + Duration::from_secs_f64(delay) };
+                self.prompt = Prompt::Showing {
+                    until: Instant::now() + Duration::from_secs_f64(delay),
+                };
             }
             Prompt::Showing { .. } | Prompt::Allowed => {}
         }
         // markExistingPacksAsRemoved: a pack pushed again replaces itself.
         self.packs.retain(|p| p.id != id);
-        self.packs.push(Pack { id, url, hash, download: Download::Waiting, reported: false, settled: false });
+        self.packs.push(Pack {
+            id,
+            url,
+            hash,
+            download: Download::Waiting,
+            reported: false,
+            settled: false,
+        });
         if self.prompt == Prompt::Allowed {
             self.accept(self.packs.len() - 1, &mut turn);
         }
@@ -186,7 +210,8 @@ impl PackManager {
             Ok(runtime) => {
                 runtime.spawn(async move {
                     let id = request.id;
-                    let result = tokio::time::timeout(Duration::from_secs(300), download(request)).await;
+                    let result =
+                        tokio::time::timeout(Duration::from_secs(300), download(request)).await;
                     let result = result.unwrap_or_else(|_| Err("timed out".into()));
                     let _ = results.send((id, result));
                 });
@@ -224,7 +249,13 @@ impl PackManager {
         }
 
         while let Ok((id, result)) = self.results.try_recv() {
-            let Some(pack) = self.packs.iter_mut().find(|p| p.id == id && p.download == Download::Running) else { continue };
+            let Some(pack) = self
+                .packs
+                .iter_mut()
+                .find(|p| p.id == id && p.download == Download::Running)
+            else {
+                continue;
+            };
             match result {
                 Ok(done) => {
                     info!(%id, size = done.size, sha1 = %done.sha1, cached = done.from_cache, "resource pack downloaded");
@@ -254,10 +285,17 @@ impl PackManager {
 
         // triggerReloadIfNeeded: once nothing is downloading, one reload
         // loads every pack that is ready.
-        let downloading = self.packs.iter().any(|p| matches!(p.download, Download::Running | Download::Waiting));
+        let downloading = self
+            .packs
+            .iter()
+            .any(|p| matches!(p.download, Download::Running | Download::Waiting));
         if self.reload.is_none() && !downloading {
-            let ready: Vec<Uuid> =
-                self.packs.iter().filter(|p| matches!(p.download, Download::Done { .. }) && !p.settled).map(|p| p.id).collect();
+            let ready: Vec<Uuid> = self
+                .packs
+                .iter()
+                .filter(|p| matches!(p.download, Download::Done { .. }) && !p.settled)
+                .map(|p| p.id)
+                .collect();
             if !ready.is_empty() {
                 // A resource reload takes a real client seconds: longer
                 // with more to load.
@@ -272,7 +310,14 @@ impl PackManager {
             for pack in self.packs.iter_mut().filter(|p| ready.contains(&p.id)) {
                 pack.settled = true;
                 let valid = matches!(pack.download, Download::Done { valid: true });
-                turn.responses.push((pack.id, if valid { Action::SuccessfullyLoaded } else { Action::FailedReload }));
+                turn.responses.push((
+                    pack.id,
+                    if valid {
+                        Action::SuccessfullyLoaded
+                    } else {
+                        Action::FailedReload
+                    },
+                ));
             }
         }
         turn
@@ -299,15 +344,25 @@ async fn download(request: Request) -> Result<Downloaded, String> {
     };
     if let (Some(marker), Some(hash)) = (&marker, &request.hash) {
         if marker.exists() {
-            return Ok(Downloaded { sha1: hash.clone(), size: 0, is_zip: true, from_cache: true });
+            return Ok(Downloaded {
+                sha1: hash.clone(),
+                size: 0,
+                is_zip: true,
+                from_cache: true,
+            });
         }
     }
 
     let body = fetch(&request).await?;
-    let sha1 = Sha1::digest(&body).iter().map(|b| format!("{b:02x}")).collect::<String>();
+    let sha1 = Sha1::digest(&body)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<String>();
     if let Some(hash) = &request.hash {
         if *hash != sha1 {
-            return Err(format!("hash of downloaded file ({sha1}) did not match requested ({hash})"));
+            return Err(format!(
+                "hash of downloaded file ({sha1}) did not match requested ({hash})"
+            ));
         }
     }
     let is_zip = body.starts_with(b"PK");
@@ -318,25 +373,50 @@ async fn download(request: Request) -> Result<Downloaded, String> {
         }
         let _ = std::fs::write(&marker, b"");
     }
-    Ok(Downloaded { sha1, size: body.len() as u64, is_zip, from_cache: false })
+    Ok(Downloaded {
+        sha1,
+        size: body.len() as u64,
+        is_zip,
+        from_cache: false,
+    })
 }
 
 /// The request line and headers `HttpURLConnection` writes. `Map.of`
 /// iterates the six custom headers in an order that differs from one JVM
 /// run to the next; Java's own three always follow.
-fn request_bytes(url: &Url, username: &str, profile: Uuid, shuffle: &mut impl rand::Rng) -> Vec<u8> {
+fn request_bytes(
+    url: &Url,
+    username: &str,
+    profile: Uuid,
+    shuffle: &mut impl rand::Rng,
+) -> Vec<u8> {
     let mut custom = [
         ("X-Minecraft-Username", username.to_owned()),
         // UndashedUuid.toString
         ("X-Minecraft-UUID", profile.simple().to_string()),
-        ("X-Minecraft-Version", rapidbot_protocol::VERSION_NAME.to_owned()),
-        ("X-Minecraft-Version-ID", rapidbot_protocol::VERSION_ID.to_owned()),
-        ("X-Minecraft-Pack-Format", rapidbot_protocol::RESOURCE_PACK_FORMAT.to_owned()),
-        ("User-Agent", format!("Minecraft Java/{}", rapidbot_protocol::VERSION_NAME)),
+        (
+            "X-Minecraft-Version",
+            rapidbot_protocol::VERSION_NAME.to_owned(),
+        ),
+        (
+            "X-Minecraft-Version-ID",
+            rapidbot_protocol::VERSION_ID.to_owned(),
+        ),
+        (
+            "X-Minecraft-Pack-Format",
+            rapidbot_protocol::RESOURCE_PACK_FORMAT.to_owned(),
+        ),
+        (
+            "User-Agent",
+            format!("Minecraft Java/{}", rapidbot_protocol::VERSION_NAME),
+        ),
     ];
     custom.shuffle(shuffle);
     let file = &url[url::Position::BeforePath..url::Position::AfterQuery];
-    let mut out = format!("GET {} HTTP/1.1\r\n", if file.is_empty() { "/" } else { file });
+    let mut out = format!(
+        "GET {} HTTP/1.1\r\n",
+        if file.is_empty() { "/" } else { file }
+    );
     for (name, value) in custom {
         out.push_str(&format!("{name}: {value}\r\n"));
     }
@@ -384,19 +464,28 @@ struct Response {
 }
 
 async fn round_trip(url: &Url, request: &[u8]) -> Result<Response, String> {
-    let host = url.host_str().ok_or("no host in URL")?.trim_matches(['[', ']']).to_owned();
+    let host = url
+        .host_str()
+        .ok_or("no host in URL")?
+        .trim_matches(['[', ']'])
+        .to_owned();
     let port = url.port_or_known_default().ok_or("no port")?;
-    let tcp = tokio::net::TcpStream::connect((host.as_str(), port)).await.map_err(|e| format!("connect: {e}"))?;
+    let tcp = tokio::net::TcpStream::connect((host.as_str(), port))
+        .await
+        .map_err(|e| format!("connect: {e}"))?;
     if url.scheme() == "https" {
         use tokio_rustls::rustls;
         let mut roots = rustls::RootCertStore::empty();
         roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let config = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .map_err(|e| format!("tls: {e}"))?
-            .with_root_certificates(roots)
-            .with_no_client_auth();
-        let name = rustls::pki_types::ServerName::try_from(host).map_err(|e| format!("tls name: {e}"))?;
+        let config = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .map_err(|e| format!("tls: {e}"))?
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+        let name =
+            rustls::pki_types::ServerName::try_from(host).map_err(|e| format!("tls name: {e}"))?;
         let stream = tokio_rustls::TlsConnector::from(Arc::new(config))
             .connect(name, tcp)
             .await
@@ -408,7 +497,10 @@ async fn round_trip(url: &Url, request: &[u8]) -> Result<Response, String> {
 }
 
 /// Writes the request and reads one HTTP/1.1 response.
-async fn exchange(mut stream: impl AsyncRead + AsyncWrite + Unpin, request: &[u8]) -> Result<Response, String> {
+async fn exchange(
+    mut stream: impl AsyncRead + AsyncWrite + Unpin,
+    request: &[u8],
+) -> Result<Response, String> {
     let io = |e: std::io::Error| format!("http: {e}");
     stream.write_all(request).await.map_err(io)?;
     stream.flush().await.map_err(io)?;
@@ -431,11 +523,16 @@ async fn exchange(mut stream: impl AsyncRead + AsyncWrite + Unpin, request: &[u8
     };
     let head = String::from_utf8_lossy(&buffer[..head_end]).into_owned();
     let mut lines = head.split("\r\n");
-    let status: u16 = lines.next().and_then(|l| l.split(' ').nth(1)).and_then(|s| s.parse().ok()).ok_or("bad status line")?;
+    let status: u16 = lines
+        .next()
+        .and_then(|l| l.split(' ').nth(1))
+        .and_then(|s| s.parse().ok())
+        .ok_or("bad status line")?;
     let header = |name: &str| {
         head.split("\r\n").skip(1).find_map(|line| {
             let (key, value) = line.split_once(':')?;
-            key.eq_ignore_ascii_case(name).then(|| value.trim().to_owned())
+            key.eq_ignore_ascii_case(name)
+                .then(|| value.trim().to_owned())
         })
     };
     let location = header("location");
@@ -447,7 +544,9 @@ async fn exchange(mut stream: impl AsyncRead + AsyncWrite + Unpin, request: &[u8
         body = dechunk(&body)?;
     } else if let Some(length) = header("content-length").and_then(|v| v.parse::<u64>().ok()) {
         if length > MAX_PACK_SIZE {
-            return Err(format!("filesize is bigger than maximum allowed (file is {length}, limit is {MAX_PACK_SIZE})"));
+            return Err(format!(
+                "filesize is bigger than maximum allowed (file is {length}, limit is {MAX_PACK_SIZE})"
+            ));
         }
         while (body.len() as u64) < length {
             let mut chunk = vec![0u8; 65_536];
@@ -464,10 +563,18 @@ async fn exchange(mut stream: impl AsyncRead + AsyncWrite + Unpin, request: &[u8
     if body.len() as u64 > MAX_PACK_SIZE {
         return Err("filesize was bigger than maximum allowed".into());
     }
-    Ok(Response { status, location, body })
+    Ok(Response {
+        status,
+        location,
+        body,
+    })
 }
 
-async fn read_to_limit(stream: &mut (impl AsyncRead + Unpin), body: &mut Vec<u8>, limit: u64) -> Result<(), String> {
+async fn read_to_limit(
+    stream: &mut (impl AsyncRead + Unpin),
+    body: &mut Vec<u8>,
+    limit: u64,
+) -> Result<(), String> {
     let mut chunk = vec![0u8; 65_536];
     loop {
         match stream.read(&mut chunk).await {
@@ -490,9 +597,13 @@ async fn read_to_limit(stream: &mut (impl AsyncRead + Unpin), body: &mut Vec<u8>
 fn dechunk(mut data: &[u8]) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     loop {
-        let line_end = data.windows(2).position(|w| w == b"\r\n").ok_or("bad chunked body")?;
+        let line_end = data
+            .windows(2)
+            .position(|w| w == b"\r\n")
+            .ok_or("bad chunked body")?;
         let size_text = std::str::from_utf8(&data[..line_end]).map_err(|_| "bad chunk size")?;
-        let size = usize::from_str_radix(size_text.split(';').next().unwrap_or("").trim(), 16).map_err(|_| "bad chunk size")?;
+        let size = usize::from_str_radix(size_text.split(';').next().unwrap_or("").trim(), 16)
+            .map_err(|_| "bad chunk size")?;
         data = &data[line_end + 2..];
         if size == 0 {
             return Ok(out);
@@ -543,7 +654,16 @@ mod tests {
                 "X-Minecraft-Version: 26.3",
             ]
         );
-        assert_eq!(lines[7..], ["Host: 127.0.0.1:57441", "Accept: */*", "Connection: keep-alive", "", ""]);
+        assert_eq!(
+            lines[7..],
+            [
+                "Host: 127.0.0.1:57441",
+                "Accept: */*",
+                "Connection: keep-alive",
+                "",
+                ""
+            ]
+        );
 
         // Default ports are left out of Host; an empty path is "/".
         let url = Url::parse("https://cdn.example.net").unwrap();
@@ -562,7 +682,10 @@ mod tests {
 
     #[test]
     fn chunked_bodies() {
-        assert_eq!(dechunk(b"4\r\nWiki\r\n5;x=y\r\npedia\r\n0\r\n\r\n").unwrap(), b"Wikipedia");
+        assert_eq!(
+            dechunk(b"4\r\nWiki\r\n5;x=y\r\npedia\r\n0\r\n\r\n").unwrap(),
+            b"Wikipedia"
+        );
         assert!(dechunk(b"4\r\nWi").is_err());
     }
 
@@ -575,7 +698,9 @@ mod tests {
         let log = seen.clone();
         tokio::spawn(async move {
             loop {
-                let Ok((mut socket, _)) = listener.accept().await else { return };
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
                 let mut buffer = vec![0u8; 4096];
                 let n = socket.read(&mut buffer).await.unwrap_or(0);
                 let request = String::from_utf8_lossy(&buffer[..n]).into_owned();
@@ -583,11 +708,16 @@ mod tests {
                 log.lock().unwrap().push(request);
                 let response = match path.as_str() {
                     "/pack.zip" => {
-                        let mut r = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n", pack.len()).into_bytes();
+                        let mut r =
+                            format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n", pack.len())
+                                .into_bytes();
                         r.extend_from_slice(&pack);
                         r
                     }
-                    "/moved" => b"HTTP/1.1 302 Found\r\nLocation: /pack.zip\r\nContent-Length: 0\r\n\r\n".to_vec(),
+                    "/moved" => {
+                        b"HTTP/1.1 302 Found\r\nLocation: /pack.zip\r\nContent-Length: 0\r\n\r\n"
+                            .to_vec()
+                    }
                     _ => b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n".to_vec(),
                 };
                 let _ = socket.write_all(&response).await;
@@ -611,21 +741,41 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn accepts_downloads_and_loads() {
         let pack = b"PK\x03\x04 pretend zip".to_vec();
-        let sha1 = Sha1::digest(&pack).iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let sha1 = Sha1::digest(&pack)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
         let (port, seen) = serve(pack).await;
         let id = Uuid::from_u128(1);
 
         // Server saved with packs enabled: no prompt, straight to ACCEPTED.
-        let mut manager = PackManager::new(ResourcePackPolicy::Enabled, "Steve".into(), profile(), None, 1);
-        let turn = manager.push(id, &format!("http://127.0.0.1:{port}/moved"), &sha1.to_uppercase(), true);
+        let mut manager = PackManager::new(
+            ResourcePackPolicy::Enabled,
+            "Steve".into(),
+            profile(),
+            None,
+            1,
+        );
+        let turn = manager.push(
+            id,
+            &format!("http://127.0.0.1:{port}/moved"),
+            &sha1.to_uppercase(),
+            true,
+        );
         assert_eq!(turn.responses, [(id, Action::Accepted)]);
         assert!(!manager.screen_open());
         let rest = settle(&mut manager, 2).await;
-        assert_eq!(rest, [(id, Action::Downloaded), (id, Action::SuccessfullyLoaded)]);
+        assert_eq!(
+            rest,
+            [(id, Action::Downloaded), (id, Action::SuccessfullyLoaded)]
+        );
         // The redirect was followed with the same headers.
         let seen = seen.lock().unwrap();
         assert_eq!(seen.len(), 2);
-        assert!(seen[0].starts_with("GET /moved HTTP/1.1\r\n") && seen[1].starts_with("GET /pack.zip HTTP/1.1\r\n"));
+        assert!(
+            seen[0].starts_with("GET /moved HTTP/1.1\r\n")
+                && seen[1].starts_with("GET /pack.zip HTTP/1.1\r\n")
+        );
         assert_eq!(seen[0].replace("/moved", "/pack.zip"), seen[1]);
     }
 
@@ -635,29 +785,82 @@ mod tests {
         let (a, b, c) = (Uuid::from_u128(1), Uuid::from_u128(2), Uuid::from_u128(3));
 
         // With a prompt: nothing until the click, then both packs at once.
-        let mut manager = PackManager::new(ResourcePackPolicy::Accept, "Steve".into(), profile(), None, 1);
-        assert!(manager.push(a, &format!("http://127.0.0.1:{port}/pack.zip"), "", false).responses.is_empty());
-        assert!(manager.push(b, &format!("http://127.0.0.1:{port}/missing.zip"), "", false).responses.is_empty());
+        let mut manager = PackManager::new(
+            ResourcePackPolicy::Accept,
+            "Steve".into(),
+            profile(),
+            None,
+            1,
+        );
+        assert!(
+            manager
+                .push(a, &format!("http://127.0.0.1:{port}/pack.zip"), "", false)
+                .responses
+                .is_empty()
+        );
+        assert!(
+            manager
+                .push(
+                    b,
+                    &format!("http://127.0.0.1:{port}/missing.zip"),
+                    "",
+                    false
+                )
+                .responses
+                .is_empty()
+        );
         assert!(manager.screen_open());
         let all = settle(&mut manager, 5).await;
         assert!(!manager.screen_open());
         assert_eq!(all[..2], [(a, Action::Accepted), (b, Action::Accepted)]);
         // One loads badly (not a zip), the other was a 404.
-        assert!(all.contains(&(a, Action::Downloaded)) && all.contains(&(b, Action::FailedDownload)));
+        assert!(
+            all.contains(&(a, Action::Downloaded)) && all.contains(&(b, Action::FailedDownload))
+        );
         assert_eq!(all.last(), Some(&(a, Action::FailedReload)));
 
         // A wrong hash fails the download.
-        let turn = manager.push(c, &format!("http://127.0.0.1:{port}/pack.zip"), &"ab".repeat(20), false);
-        assert_eq!(turn.responses, [(c, Action::Accepted)], "already allowed: no second prompt");
+        let turn = manager.push(
+            c,
+            &format!("http://127.0.0.1:{port}/pack.zip"),
+            &"ab".repeat(20),
+            false,
+        );
+        assert_eq!(
+            turn.responses,
+            [(c, Action::Accepted)],
+            "already allowed: no second prompt"
+        );
         assert_eq!(settle(&mut manager, 1).await, [(c, Action::FailedDownload)]);
 
         // Not a URL the client will fetch.
-        assert_eq!(manager.push(c, "ftp://example.net/pack.zip", "", false).responses, [(c, Action::InvalidUrl)]);
+        assert_eq!(
+            manager
+                .push(c, "ftp://example.net/pack.zip", "", false)
+                .responses,
+            [(c, Action::InvalidUrl)]
+        );
 
         // Declining: after the click, and again at once for later packs.
-        let mut manager = PackManager::new(ResourcePackPolicy::Decline, "Steve".into(), profile(), None, 1);
-        assert!(manager.push(a, "http://127.0.0.1:1/pack.zip", "", false).responses.is_empty());
+        let mut manager = PackManager::new(
+            ResourcePackPolicy::Decline,
+            "Steve".into(),
+            profile(),
+            None,
+            1,
+        );
+        assert!(
+            manager
+                .push(a, "http://127.0.0.1:1/pack.zip", "", false)
+                .responses
+                .is_empty()
+        );
         assert_eq!(settle(&mut manager, 1).await, [(a, Action::Declined)]);
-        assert_eq!(manager.push(b, "http://127.0.0.1:1/pack.zip", "", false).responses, [(b, Action::Declined)]);
+        assert_eq!(
+            manager
+                .push(b, "http://127.0.0.1:1/pack.zip", "", false)
+                .responses,
+            [(b, Action::Declined)]
+        );
     }
 }

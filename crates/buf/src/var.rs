@@ -158,7 +158,11 @@ impl<T: EncodeVar> EncodeVar for Option<T> {
 
 impl<T: DecodeVar> DecodeVar for Option<T> {
     fn decode_var(buf: &mut &[u8]) -> Result<Self, DecodeError> {
-        Ok(if bool::decode(buf)? { Some(T::decode_var(buf)?) } else { None })
+        Ok(if bool::decode(buf)? {
+            Some(T::decode_var(buf)?)
+        } else {
+            None
+        })
     }
 }
 

@@ -74,7 +74,9 @@ pub enum ResourcePackAction {
 macro_rules! common_packets {
     ($state:ident) => {
         pub mod common_clientbound {
-            use rapidbot_buf::{BoundedString, ByteArray, Decode, Encode, Identifier, RemainingBytes};
+            use rapidbot_buf::{
+                BoundedString, ByteArray, Decode, Encode, Identifier, RemainingBytes,
+            };
             use rapidbot_nbt::Tag;
             use uuid::Uuid;
 

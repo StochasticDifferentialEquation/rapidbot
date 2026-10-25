@@ -60,7 +60,8 @@ impl Keyboard {
             let remaining = match self.pending[k] {
                 Some(t) => t - dt,
                 None => {
-                    let mut latency = self.noise.lognormal(self.latency_median, 0.45) * (1.0 + 0.4 * fatigue);
+                    let mut latency =
+                        self.noise.lognormal(self.latency_median, 0.45) * (1.0 + 0.4 * fatigue);
                     if self.actual[k] {
                         // A release cannot come before the tap is over.
                         latency = latency.max(self.min_tap - self.held_for[k]);
@@ -133,7 +134,10 @@ mod tests {
                 }
             }
             // Either the finger never got there, or it stayed down a while.
-            assert!(down_frames == 0 || down_frames >= 2, "seed {seed}: {down_frames}");
+            assert!(
+                down_frames == 0 || down_frames >= 2,
+                "seed {seed}: {down_frames}"
+            );
         }
     }
 }

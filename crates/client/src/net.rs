@@ -45,7 +45,10 @@ impl PacketSender {
 /// What the network side hands to the main thread.
 #[derive(Debug)]
 pub enum Inbound {
-    Packet { state: State, packet: RawPacket },
+    Packet {
+        state: State,
+        packet: RawPacket,
+    },
     /// A `ClientboundBundlePacket`: handled together, in order, in one go.
     Bundle(Vec<RawPacket>),
     Disconnected(String),
@@ -75,7 +78,11 @@ struct ChunkBatchSizeCalculator {
 
 impl ChunkBatchSizeCalculator {
     fn new() -> Self {
-        Self { aggregated_nanos_per_chunk: 2_000_000.0, old_samples_weight: 1, batch_start: clock::nanos() }
+        Self {
+            aggregated_nanos_per_chunk: 2_000_000.0,
+            old_samples_weight: 1,
+            batch_start: clock::nanos(),
+        }
     }
 
     fn on_batch_start(&mut self) {
@@ -91,9 +98,9 @@ impl ChunkBatchSizeCalculator {
                 self.aggregated_nanos_per_chunk / 3.0,
                 self.aggregated_nanos_per_chunk * 3.0,
             );
-            self.aggregated_nanos_per_chunk = (self.aggregated_nanos_per_chunk * self.old_samples_weight as f64
-                + clamped)
-                / (self.old_samples_weight + 1) as f64;
+            self.aggregated_nanos_per_chunk =
+                (self.aggregated_nanos_per_chunk * self.old_samples_weight as f64 + clamped)
+                    / (self.old_samples_weight + 1) as f64;
             self.old_samples_weight = (self.old_samples_weight + 1).min(49);
         }
     }
@@ -110,7 +117,11 @@ pub fn spawn_reader(mut reader: Reader, sender: PacketSender, inbound: std_mpsc:
     });
 }
 
-async fn read_loop(reader: &mut Reader, sender: &PacketSender, inbound: &std_mpsc::Sender<Inbound>) -> String {
+async fn read_loop(
+    reader: &mut Reader,
+    sender: &PacketSender,
+    inbound: &std_mpsc::Sender<Inbound>,
+) -> String {
     // The reader follows the server's view: after it sends a terminal packet
     // (finish/start configuration) the next packets belong to the new state.
     let mut state = State::Configuration;
@@ -155,7 +166,9 @@ async fn read_loop(reader: &mut Reader, sender: &PacketSender, inbound: &std_mps
         }
 
         let next_state = match (state, packet.id) {
-            (State::Configuration, configuration::clientbound::FinishConfiguration::ID) => Some(State::Play),
+            (State::Configuration, configuration::clientbound::FinishConfiguration::ID) => {
+                Some(State::Play)
+            }
             (State::Play, play::clientbound::StartConfiguration::ID) => Some(State::Configuration),
             _ => None,
         };
@@ -191,12 +204,16 @@ fn handle_on_network_thread(
                     sender.send(&sb::KeepAlive { id });
                     Ok(Yes)
                 }
-                cb::Disconnect::ID => Ok(Disconnect(disconnect_reason(&packet.decode::<cb::Disconnect>()?.reason))),
-                cb::CustomPayload::ID => Ok(if is_brand(&packet.decode::<cb::CustomPayload>()?.channel) {
-                    No
-                } else {
-                    Yes
-                }),
+                cb::Disconnect::ID => Ok(Disconnect(disconnect_reason(
+                    &packet.decode::<cb::Disconnect>()?.reason,
+                ))),
+                cb::CustomPayload::ID => Ok(
+                    if is_brand(&packet.decode::<cb::CustomPayload>()?.channel) {
+                        No
+                    } else {
+                        Yes
+                    },
+                ),
                 // Handled without the main thread; nothing to send.
                 cb::UpdateEnabledFeatures::ID | cb::ResetChat::ID => Ok(No),
                 _ => Ok(No),
@@ -222,12 +239,16 @@ fn handle_on_network_thread(
                     });
                     Ok(Yes)
                 }
-                cb::Disconnect::ID => Ok(Disconnect(disconnect_reason(&packet.decode::<cb::Disconnect>()?.reason))),
-                cb::CustomPayload::ID => Ok(if is_brand(&packet.decode::<cb::CustomPayload>()?.channel) {
-                    No
-                } else {
-                    Yes
-                }),
+                cb::Disconnect::ID => Ok(Disconnect(disconnect_reason(
+                    &packet.decode::<cb::Disconnect>()?.reason,
+                ))),
+                cb::CustomPayload::ID => Ok(
+                    if is_brand(&packet.decode::<cb::CustomPayload>()?.channel) {
+                        No
+                    } else {
+                        Yes
+                    },
+                ),
                 _ => Ok(No),
             }
         }

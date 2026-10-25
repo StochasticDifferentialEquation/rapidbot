@@ -37,7 +37,11 @@ pub fn clamp_f32(v: f32, min: f32, max: f32) -> f32 {
 }
 
 pub fn clamp_f64(v: f64, min: f64, max: f64) -> f64 {
-    if v < min { min } else { rapidbot_world::aabb::java_min(v, max) }
+    if v < min {
+        min
+    } else {
+        rapidbot_world::aabb::java_min(v, max)
+    }
 }
 
 fn java_min_f32(a: f32, b: f32) -> f32 {
@@ -141,7 +145,11 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-    pub const ZERO: Vec3 = Vec3 { x: 0.0, y: 0.0, z: 0.0 };
+    pub const ZERO: Vec3 = Vec3 {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
 
     pub const fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
@@ -174,7 +182,11 @@ impl Vec3 {
     /// `Vec3.normalize`: zero below `1.0E-5F`.
     pub fn normalize(self) -> Self {
         let dist = (self.x * self.x + self.y * self.y + self.z * self.z).sqrt();
-        if dist < 1.0e-5f32 as f64 { Self::ZERO } else { Self::new(self.x / dist, self.y / dist, self.z / dist) }
+        if dist < 1.0e-5f32 as f64 {
+            Self::ZERO
+        } else {
+            Self::new(self.x / dist, self.y / dist, self.z / dist)
+        }
     }
 
     pub fn get(self, axis: rapidbot_world::Axis) -> f64 {
@@ -197,14 +209,22 @@ impl Vec3 {
     pub fn x_rot(self, radians: f32) -> Self {
         let cos = cos(radians as f64) as f64;
         let sin = sin(radians as f64) as f64;
-        Self::new(self.x, self.y * cos + self.z * sin, self.z * cos - self.y * sin)
+        Self::new(
+            self.x,
+            self.y * cos + self.z * sin,
+            self.z * cos - self.y * sin,
+        )
     }
 
     /// `Vec3.yRot(float)`.
     pub fn y_rot(self, radians: f32) -> Self {
         let cos = cos(radians as f64) as f64;
         let sin = sin(radians as f64) as f64;
-        Self::new(self.x * cos + self.z * sin, self.y, self.z * cos - self.x * sin)
+        Self::new(
+            self.x * cos + self.z * sin,
+            self.y,
+            self.z * cos - self.x * sin,
+        )
     }
 }
 
@@ -224,7 +244,9 @@ mod tests {
     fn sin_table_matches_vanilla() {
         let mut hash = 0i64;
         for v in sin_table().iter() {
-            hash = hash.wrapping_mul(31).wrapping_add(v.to_bits() as i32 as i64);
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(v.to_bits() as i32 as i64);
         }
         assert_eq!(hash, crate::mth_tables::SIN_TABLE_HASH);
     }

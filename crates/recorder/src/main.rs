@@ -19,8 +19,7 @@ mod analyze;
 mod record;
 
 /// Used when `RAPIDBOT_SENTRY_DSN` is not set.
-const DEFAULT_SENTRY_DSN: &str =
-    "https://023f178131cc96624f4f5b5fd37d2d4b@o4512307547013120.ingest.us.sentry.io/4512307554025472";
+const DEFAULT_SENTRY_DSN: &str = "https://023f178131cc96624f4f5b5fd37d2d4b@o4512307547013120.ingest.us.sentry.io/4512307554025472";
 
 /// Returns the DSN to use, or `None` when reporting is disabled.
 fn sentry_dsn(override_value: Option<String>) -> Option<String> {
@@ -45,7 +44,10 @@ fn main() {
     match args.first().map(String::as_str) {
         #[cfg(windows)]
         Some("record") => {
-            let path = args.get(1).cloned().unwrap_or_else(|| "recording.csv".into());
+            let path = args
+                .get(1)
+                .cloned()
+                .unwrap_or_else(|| "recording.csv".into());
             if let Err(e) = record::run(&path) {
                 eprintln!("recording failed: {e}");
                 std::process::exit(1);
@@ -53,7 +55,9 @@ fn main() {
         }
         Some("analyze") => {
             let Some(path) = args.get(1) else {
-                eprintln!("usage: rapidbot-recorder analyze <file.csv> [sensitivity 0-1, default 0.5]");
+                eprintln!(
+                    "usage: rapidbot-recorder analyze <file.csv> [sensitivity 0-1, default 0.5]"
+                );
                 std::process::exit(2);
             };
             let sensitivity = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(0.5);
@@ -66,7 +70,9 @@ fn main() {
             }
         }
         _ => {
-            eprintln!("usage:\n  rapidbot-recorder record <file.csv>\n  rapidbot-recorder analyze <file.csv> [sensitivity]");
+            eprintln!(
+                "usage:\n  rapidbot-recorder record <file.csv>\n  rapidbot-recorder analyze <file.csv> [sensitivity]"
+            );
             std::process::exit(2);
         }
     }

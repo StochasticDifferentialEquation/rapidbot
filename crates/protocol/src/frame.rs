@@ -145,7 +145,9 @@ impl FrameDecoder {
         let mut len = 0usize;
         let mut complete = false;
         for i in 0..3 {
-            let Some(&byte) = rest.get(i) else { return Ok(None) };
+            let Some(&byte) = rest.get(i) else {
+                return Ok(None);
+            };
             len |= ((byte & 0x7f) as usize) << (7 * i);
             if byte & 0x80 == 0 {
                 rest = &rest[i + 1..];
@@ -177,8 +179,9 @@ impl FrameDecoder {
         if uncompressed_len == 0 {
             return Ok(frame.to_vec());
         }
-        let uncompressed_len = usize::try_from(uncompressed_len)
-            .map_err(|_| FrameError::BadCompression(format!("negative length {uncompressed_len}")))?;
+        let uncompressed_len = usize::try_from(uncompressed_len).map_err(|_| {
+            FrameError::BadCompression(format!("negative length {uncompressed_len}"))
+        })?;
         if uncompressed_len > MAX_UNCOMPRESSED_LEN {
             return Err(FrameError::TooLarge(uncompressed_len));
         }

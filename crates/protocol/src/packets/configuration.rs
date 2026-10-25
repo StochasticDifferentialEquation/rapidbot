@@ -30,7 +30,12 @@ pub mod clientbound {
     /// `ClientboundFinishConfigurationPacket`.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
     pub struct FinishConfiguration;
-    packet!(FinishConfiguration, configuration, clientbound, FINISH_CONFIGURATION);
+    packet!(
+        FinishConfiguration,
+        configuration,
+        clientbound,
+        FINISH_CONFIGURATION
+    );
 
     /// `ClientboundResetChatPacket`.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
@@ -50,7 +55,12 @@ pub mod clientbound {
     pub struct UpdateEnabledFeatures {
         pub features: Vec<Identifier>,
     }
-    packet!(UpdateEnabledFeatures, configuration, clientbound, UPDATE_ENABLED_FEATURES);
+    packet!(
+        UpdateEnabledFeatures,
+        configuration,
+        clientbound,
+        UPDATE_ENABLED_FEATURES
+    );
 
     /// `ClientboundUpdateTagsPacket`. Kept raw until the world model needs tags.
     #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -64,7 +74,12 @@ pub mod clientbound {
     pub struct SelectKnownPacks {
         pub packs: Vec<KnownPack>,
     }
-    packet!(SelectKnownPacks, configuration, clientbound, SELECT_KNOWN_PACKS);
+    packet!(
+        SelectKnownPacks,
+        configuration,
+        clientbound,
+        SELECT_KNOWN_PACKS
+    );
 
     /// `ClientboundCodeOfConductPacket`.
     #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -84,17 +99,32 @@ pub mod serverbound {
     /// `ServerboundFinishConfigurationPacket`.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
     pub struct FinishConfiguration;
-    packet!(FinishConfiguration, configuration, serverbound, FINISH_CONFIGURATION);
+    packet!(
+        FinishConfiguration,
+        configuration,
+        serverbound,
+        FINISH_CONFIGURATION
+    );
 
     /// `ServerboundSelectKnownPacks`: at most 64 entries.
     #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
     pub struct SelectKnownPacks {
         pub packs: Vec<KnownPack>,
     }
-    packet!(SelectKnownPacks, configuration, serverbound, SELECT_KNOWN_PACKS);
+    packet!(
+        SelectKnownPacks,
+        configuration,
+        serverbound,
+        SELECT_KNOWN_PACKS
+    );
 
     /// `ServerboundAcceptCodeOfConductPacket`.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
     pub struct AcceptCodeOfConduct;
-    packet!(AcceptCodeOfConduct, configuration, serverbound, ACCEPT_CODE_OF_CONDUCT);
+    packet!(
+        AcceptCodeOfConduct,
+        configuration,
+        serverbound,
+        ACCEPT_CODE_OF_CONDUCT
+    );
 }

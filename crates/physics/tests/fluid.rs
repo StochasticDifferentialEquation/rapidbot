@@ -9,7 +9,10 @@ use rapidbot_world::{DimensionHeight, Registry, World};
 fn state(name: &str, properties: &str) -> u32 {
     let r = Registry::get();
     let block = r.block_by_name(name).unwrap();
-    r.states.iter().position(|s| s.block == block.id && s.properties.contains(properties)).unwrap() as u32
+    r.states
+        .iter()
+        .position(|s| s.block == block.id && s.properties.contains(properties))
+        .unwrap() as u32
 }
 
 /// Stone floor with its top at y = 64 in chunks -1..=1.
@@ -76,7 +79,10 @@ fn holding_jump_floats_at_the_surface() {
     let world = pool("minecraft:water", 67);
     let tags = Tags::default();
     let mut p = player_at(0.5, 64.0, 0.5);
-    p.held_keys = Keys { jump: true, ..Keys::default() };
+    p.held_keys = Keys {
+        jump: true,
+        ..Keys::default()
+    };
     for _ in 0..200 {
         p.tick(&world, &tags);
     }
@@ -93,7 +99,10 @@ fn water_walking_is_slow() {
     let tags = Tags::default();
     let mut p = player_at(0.5, 64.0, 0.5);
     p.tick(&world, &tags);
-    p.held_keys = Keys { forward: true, ..Keys::default() };
+    p.held_keys = Keys {
+        forward: true,
+        ..Keys::default()
+    };
     for _ in 0..60 {
         p.tick(&world, &tags);
     }
@@ -109,7 +118,11 @@ fn sprint_swimming_under_water() {
     let mut p = player_at(0.5, 66.0, 0.5);
     p.x_rot = 0.0;
     p.tick(&world, &tags);
-    p.held_keys = Keys { forward: true, sprint: true, ..Keys::default() };
+    p.held_keys = Keys {
+        forward: true,
+        sprint: true,
+        ..Keys::default()
+    };
     for _ in 0..20 {
         p.tick(&world, &tags);
     }
@@ -156,7 +169,11 @@ fn climbs_a_ladder() {
     let mut world = flat_world();
     let mut tags = Tags::default();
     let ladder = state("minecraft:ladder", "facing=north,waterlogged=false");
-    tags.insert("minecraft:block", "minecraft:climbable", Registry::get().block_of(ladder).id);
+    tags.insert(
+        "minecraft:block",
+        "minecraft:climbable",
+        Registry::get().block_of(ladder).id,
+    );
     // A stone wall at z = 3 with ladders on its north face (z = 2).
     for y in 64..72 {
         world.set_block_state(0, y, 3, state("minecraft:stone", ""));
@@ -164,7 +181,10 @@ fn climbs_a_ladder() {
     }
     let mut p = player_at(0.5, 64.0, 1.5);
     p.tick(&world, &tags);
-    p.held_keys = Keys { forward: true, ..Keys::default() };
+    p.held_keys = Keys {
+        forward: true,
+        ..Keys::default()
+    };
     for _ in 0..30 {
         p.tick(&world, &tags);
     }
@@ -176,7 +196,10 @@ fn climbs_a_ladder() {
     // Letting go slides down at 0.15F; sneaking holds on.
     p.held_keys = Keys::default();
     p.tick(&world, &tags);
-    p.held_keys = Keys { shift: true, ..Keys::default() };
+    p.held_keys = Keys {
+        shift: true,
+        ..Keys::default()
+    };
     for _ in 0..10 {
         p.tick(&world, &tags);
     }
@@ -199,7 +222,10 @@ fn elytra_glides() {
         p.tick(&world, &tags);
     }
     assert!(!p.fall_flying);
-    p.held_keys = Keys { jump: true, ..Keys::default() };
+    p.held_keys = Keys {
+        jump: true,
+        ..Keys::default()
+    };
     p.tick(&world, &tags);
     assert!(p.fall_flying && p.started_fall_flying);
     p.held_keys = Keys::default();
@@ -218,7 +244,10 @@ fn elytra_glides() {
     // Without an elytra the same key press does nothing.
     let mut q = player_at(0.5, 200.0, 0.5);
     q.tick(&world, &tags);
-    q.held_keys = Keys { jump: true, ..Keys::default() };
+    q.held_keys = Keys {
+        jump: true,
+        ..Keys::default()
+    };
     q.tick(&world, &tags);
     assert!(!q.fall_flying);
 }
@@ -239,7 +268,10 @@ fn cobweb_slows_to_a_crawl() {
         last_y = p.pos.y;
     }
     // In the web each tick starts from rest: (0 - 0.08) * 0.98F, times 0.05F.
-    assert!((slowest - 0.0784000015258789 * 0.05000000074505806).abs() < 1e-12, "{slowest}");
+    assert!(
+        (slowest - 0.0784000015258789 * 0.05000000074505806).abs() < 1e-12,
+        "{slowest}"
+    );
     assert_eq!(p.fall_distance, 0.0);
 }
 
@@ -252,7 +284,10 @@ fn slime_slows_a_walker() {
     let tags = Tags::default();
     let mut p = player_at(0.5, 64.0, 0.5);
     p.tick(&world, &tags);
-    p.held_keys = Keys { forward: true, ..Keys::default() };
+    p.held_keys = Keys {
+        forward: true,
+        ..Keys::default()
+    };
     for _ in 0..40 {
         p.tick(&world, &tags);
     }

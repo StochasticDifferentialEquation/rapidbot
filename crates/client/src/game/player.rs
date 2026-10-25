@@ -4,8 +4,8 @@
 use rapidbot_physics::math::Vec3;
 use rapidbot_physics::{Keys, Player};
 use rapidbot_protocol::packets::play::serverbound::{
-    MovePlayerPos, MovePlayerPosRot, MovePlayerRot, MovePlayerStatusOnly, PlayerAbilities, PlayerCommand,
-    PlayerCommandAction, PlayerInput,
+    MovePlayerPos, MovePlayerPosRot, MovePlayerRot, MovePlayerStatusOnly, PlayerAbilities,
+    PlayerCommand, PlayerCommandAction, PlayerInput,
 };
 use rapidbot_protocol::packets::play::{Input, PositionMoveRotation, move_flags, relative};
 
@@ -117,7 +117,9 @@ impl LocalPlayer {
             movement = movement.x_rot((diff_x_rot as f64).to_radians() as f32);
             movement = movement.y_rot((diff_y_rot as f64).to_radians() as f32);
         }
-        let delta = |current: f64, change: f64, flag: i32| if has(flag) { current + change } else { change };
+        let delta = |current: f64, change: f64, flag: i32| {
+            if has(flag) { current + change } else { change }
+        };
         p.delta_movement = Vec3::new(
             delta(movement.x, change.delta_movement.x, relative::DELTA_X),
             delta(movement.y, change.delta_movement.y, relative::DELTA_Y),
@@ -139,11 +141,17 @@ impl LocalPlayer {
         }
         if self.physics.started_fall_flying {
             self.physics.started_fall_flying = false;
-            net.send(&PlayerCommand { entity_id: self.id, action: PlayerCommandAction::StartFallFlying, data: 0 });
+            net.send(&PlayerCommand {
+                entity_id: self.id,
+                action: PlayerCommandAction::StartFallFlying,
+                data: 0,
+            });
         }
         let keys = self.physics.key_presses;
         if self.last_sent_input != keys {
-            net.send(&PlayerInput { input: to_input(keys) });
+            net.send(&PlayerInput {
+                input: to_input(keys),
+            });
             self.last_sent_input = keys;
         }
         self.send_position(net);
@@ -164,7 +172,11 @@ impl LocalPlayer {
         let moved = dx * dx + dy * dy + dz * dz > 2.0e-4 * 2.0e-4 || self.position_reminder >= 20;
         let rotated = d_y_rot != 0.0 || d_x_rot != 0.0;
         let flags = move_flags(p.on_ground, p.horizontal_collision);
-        let pos = rapidbot_protocol::packets::play::Vec3 { x: p.pos.x, y: p.pos.y, z: p.pos.z };
+        let pos = rapidbot_protocol::packets::play::Vec3 {
+            x: p.pos.x,
+            y: p.pos.y,
+            z: p.pos.z,
+        };
 
         tracing::trace!(
             target: "rapidbot_client::moves",
@@ -177,12 +189,23 @@ impl LocalPlayer {
             "tick"
         );
         if moved && rotated {
-            net.send(&MovePlayerPosRot { pos, y_rot: p.y_rot, x_rot: p.x_rot, flags });
+            net.send(&MovePlayerPosRot {
+                pos,
+                y_rot: p.y_rot,
+                x_rot: p.x_rot,
+                flags,
+            });
         } else if moved {
             net.send(&MovePlayerPos { pos, flags });
         } else if rotated {
-            net.send(&MovePlayerRot { y_rot: p.y_rot, x_rot: p.x_rot, flags });
-        } else if self.last_on_ground != p.on_ground || self.last_horizontal_collision != p.horizontal_collision {
+            net.send(&MovePlayerRot {
+                y_rot: p.y_rot,
+                x_rot: p.x_rot,
+                flags,
+            });
+        } else if self.last_on_ground != p.on_ground
+            || self.last_horizontal_collision != p.horizontal_collision
+        {
             net.send(&MovePlayerStatusOnly { flags });
         }
 
@@ -204,8 +227,16 @@ impl LocalPlayer {
     fn send_is_sprinting_if_needed(&mut self, net: &PacketSender) {
         let sprinting = self.physics.sprinting;
         if sprinting != self.was_sprinting {
-            let action = if sprinting { PlayerCommandAction::StartSprinting } else { PlayerCommandAction::StopSprinting };
-            net.send(&PlayerCommand { entity_id: self.id, action, data: 0 });
+            let action = if sprinting {
+                PlayerCommandAction::StartSprinting
+            } else {
+                PlayerCommandAction::StopSprinting
+            };
+            net.send(&PlayerCommand {
+                entity_id: self.id,
+                action,
+                data: 0,
+            });
             self.was_sprinting = sprinting;
         }
     }
@@ -233,7 +264,10 @@ mod tests {
         assert_eq!(p.physics.y_rot, 90.0);
         assert_eq!(p.physics.x_rot, 90.0, "pitch is clamped");
 
-        p.apply_teleport(&change(1.0, 0.0, 0.0, 10.0, -5.0), relative::X | relative::Y_ROT | relative::X_ROT);
+        p.apply_teleport(
+            &change(1.0, 0.0, 0.0, 10.0, -5.0),
+            relative::X | relative::Y_ROT | relative::X_ROT,
+        );
         assert_eq!(p.physics.pos, Vec3::new(11.5, 0.0, 0.0));
         assert_eq!(p.physics.y_rot, 100.0);
         assert_eq!(p.physics.x_rot, 85.0);

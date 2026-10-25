@@ -72,7 +72,9 @@ fn traits() -> &'static [u8] {
 }
 
 fn trait_at(world: &World, x: i32, y: i32, z: i32) -> u8 {
-    world.block_state(x, y, z).map_or(0, |s| traits()[s as usize])
+    world
+        .block_state(x, y, z)
+        .map_or(0, |s| traits()[s as usize])
 }
 
 /// Whether a player-sized column centred in block column (x, z) is free of
@@ -89,8 +91,12 @@ fn column_free(world: &World, x: i32, z: i32, y0: f64, y1: f64) -> bool {
     );
     // One cell lower too: fences and walls are 1.5 tall.
     for y in (y0.floor() as i32 - 1)..=((y1 - 1.0e-7).floor() as i32) {
-        let Some(state) = world.block_state(x, y, z) else { return false };
-        let Some(shape) = registry.collision_shape(state) else { continue };
+        let Some(state) = world.block_state(x, y, z) else {
+            return false;
+        };
+        let Some(shape) = registry.collision_shape(state) else {
+            continue;
+        };
         if shape.is_block {
             if (y + 1) as f64 > y0 + 1.0e-7 && (y as f64) < y1 - 1.0e-7 {
                 return false;
@@ -147,7 +153,9 @@ pub fn surface(world: &World, x: i32, y: i32, z: i32) -> Option<f64> {
 /// up to 16 blocks either way: its cell height and surface. Keeps a goal
 /// "over there" on the ground in sight rather than in a cave beneath it.
 pub fn nearest_surface(world: &World, x: i32, z: i32, y: i32) -> Option<(i32, f64)> {
-    (0..=16).flat_map(|d| [y + d, y - d]).find_map(|cy| surface(world, x, cy, z).map(|s| (cy, s)))
+    (0..=16)
+        .flat_map(|d| [y + d, y - d])
+        .find_map(|cy| surface(world, x, cy, z).map(|s| (cy, s)))
 }
 
 /// Where a search is headed.
@@ -176,7 +184,9 @@ impl Goal {
     fn reached(&self, cell: (i32, i32, i32), surface: f64) -> bool {
         match *self {
             Goal::Column { x, z } => cell.0 == x && cell.2 == z,
-            Goal::Block { x, y, z } => cell.0 == x && cell.2 == z && (surface - y as f64).abs() < 1.0,
+            Goal::Block { x, y, z } => {
+                cell.0 == x && cell.2 == z && (surface - y as f64).abs() < 1.0
+            }
         }
     }
 }
@@ -192,7 +202,11 @@ pub struct Waypoint {
 impl Waypoint {
     /// Centre of the cell at standing height.
     pub fn pos(&self) -> Vec3 {
-        Vec3::new(self.cell.0 as f64 + 0.5, self.surface, self.cell.2 as f64 + 0.5)
+        Vec3::new(
+            self.cell.0 as f64 + 0.5,
+            self.surface,
+            self.cell.2 as f64 + 0.5,
+        )
     }
 }
 
@@ -243,7 +257,13 @@ impl Search {
         })?;
         let mut search = Self {
             goal,
-            nodes: vec![Node { cell, surface, cost: 0.0, parent: NO_PARENT, closed: false }],
+            nodes: vec![Node {
+                cell,
+                surface,
+                cost: 0.0,
+                parent: NO_PARENT,
+                closed: false,
+            }],
             index: HashMap::from([(cell, 0)]),
             open: BinaryHeap::new(),
             surfaces: HashMap::new(),
@@ -256,14 +276,19 @@ impl Search {
     }
 
     fn surface(&mut self, world: &World, cell: (i32, i32, i32)) -> Option<f64> {
-        *self.surfaces.entry(cell).or_insert_with(|| surface(world, cell.0, cell.1, cell.2))
+        *self
+            .surfaces
+            .entry(cell)
+            .or_insert_with(|| surface(world, cell.0, cell.1, cell.2))
     }
 
     /// Examines up to `budget` more places. Returns the path once the
     /// search is over, `None` while it is still going.
     pub fn step(&mut self, world: &World, budget: usize) -> Option<Path> {
         for _ in 0..budget {
-            let Some(Reverse((_, id))) = self.open.pop() else { return Some(self.path()) };
+            let Some(Reverse((_, id))) = self.open.pop() else {
+                return Some(self.path());
+            };
             let node = &mut self.nodes[id as usize];
             if node.closed {
                 continue;
@@ -293,7 +318,9 @@ impl Search {
         for (dx, dz) in CARDINALS {
             // The highest place in the next column that can be got to.
             for ny in (y - 4..=y + 1).rev() {
-                let Some(s2) = self.surface(world, (x + dx, ny, z + dz)) else { continue };
+                let Some(s2) = self.surface(world, (x + dx, ny, z + dz)) else {
+                    continue;
+                };
                 let d = s2 - s;
                 if d > JUMP {
                     continue;
@@ -321,7 +348,9 @@ impl Search {
         for (dx, dz) in DIAGONALS {
             // Only on the level or a step, and never cutting a corner.
             for ny in [y, y + 1, y - 1] {
-                let Some(s2) = self.surface(world, (x + dx, ny, z + dz)) else { continue };
+                let Some(s2) = self.surface(world, (x + dx, ny, z + dz)) else {
+                    continue;
+                };
                 let d = s2 - s;
                 if d.abs() > STEP {
                     continue;
@@ -329,7 +358,8 @@ impl Search {
                 let high = s.max(s2);
                 let side_ok = |cx: i32, cz: i32| {
                     column_free(world, cx, cz, high, high + HEIGHT)
-                        && (trait_at(world, cx, high.floor() as i32, cz) | trait_at(world, cx, high.floor() as i32 - 1, cz))
+                        && (trait_at(world, cx, high.floor() as i32, cz)
+                            | trait_at(world, cx, high.floor() as i32 - 1, cz))
                             & DANGER
                             == 0
                 };
@@ -342,7 +372,14 @@ impl Search {
         }
     }
 
-    fn relax(&mut self, world: &World, parent: u32, cell: (i32, i32, i32), surface: f64, mut cost: f64) {
+    fn relax(
+        &mut self,
+        world: &World,
+        parent: u32,
+        cell: (i32, i32, i32),
+        surface: f64,
+        mut cost: f64,
+    ) {
         // Wading is slow.
         if trait_at(world, cell.0, cell.1, cell.2) & WATER != 0 {
             cost += 1.5;
@@ -359,7 +396,13 @@ impl Search {
             }
             None => {
                 let id = self.nodes.len() as u32;
-                self.nodes.push(Node { cell, surface, cost, parent, closed: false });
+                self.nodes.push(Node {
+                    cell,
+                    surface,
+                    cost,
+                    parent,
+                    closed: false,
+                });
                 self.index.insert(cell, id);
                 id
             }
@@ -374,12 +417,18 @@ impl Search {
         let mut id = self.best;
         while id != NO_PARENT {
             let node = &self.nodes[id as usize];
-            points.push(Waypoint { cell: node.cell, surface: node.surface });
+            points.push(Waypoint {
+                cell: node.cell,
+                surface: node.surface,
+            });
             id = node.parent;
         }
         points.reverse();
         let end = &self.nodes[self.best as usize];
-        Path { points, complete: self.goal.reached(end.cell, end.surface) }
+        Path {
+            points,
+            complete: self.goal.reached(end.cell, end.surface),
+        }
     }
 }
 
@@ -401,7 +450,8 @@ pub fn line_walkable(world: &World, from: Vec3, to: Vec3) -> bool {
     let s = to.y;
     let cell_y = (s + 1.0e-4).floor() as i32;
     let level = |x: f64, z: f64| {
-        surface(world, x.floor() as i32, cell_y, z.floor() as i32).is_some_and(|v| (v - s).abs() < 0.01)
+        surface(world, x.floor() as i32, cell_y, z.floor() as i32)
+            .is_some_and(|v| (v - s).abs() < 0.01)
     };
     let (dx, dz) = (to.x - from.x, to.z - from.z);
     let steps = ((dx * dx + dz * dz).sqrt() / 0.25).ceil().max(1.0) as usize;
@@ -411,14 +461,23 @@ pub fn line_walkable(world: &World, from: Vec3, to: Vec3) -> bool {
         if !level(x, z) {
             return false;
         }
-        let bbox = Aabb::new(x - HALF_WIDTH, s, z - HALF_WIDTH, x + HALF_WIDTH, s + HEIGHT, z + HALF_WIDTH);
+        let bbox = Aabb::new(
+            x - HALF_WIDTH,
+            s,
+            z - HALF_WIDTH,
+            x + HALF_WIDTH,
+            s + HEIGHT,
+            z + HALF_WIDTH,
+        );
         if !block_collisions(world, registry, &bbox.deflate(1.0e-7, 1.0e-7, 1.0e-7)).is_empty() {
             return false;
         }
         // Under each corner: level ground or a wall, not an edge.
         for (cx, cz) in [(-1.0, -1.0), (-1.0, 1.0), (1.0, -1.0), (1.0, 1.0)] {
             let (px, pz) = (x + cx * HALF_WIDTH, z + cz * HALF_WIDTH);
-            if !level(px, pz) && column_free(world, px.floor() as i32, pz.floor() as i32, s, s + HEIGHT) {
+            if !level(px, pz)
+                && column_free(world, px.floor() as i32, pz.floor() as i32, s, s + HEIGHT)
+            {
                 return false;
             }
         }
@@ -436,7 +495,10 @@ mod tests {
     fn state(name: &str, properties: &str) -> u32 {
         let r = Registry::get();
         let block = r.block_by_name(name).unwrap();
-        r.states.iter().position(|s| s.block == block.id && s.properties.contains(properties)).unwrap() as u32
+        r.states
+            .iter()
+            .position(|s| s.block == block.id && s.properties.contains(properties))
+            .unwrap() as u32
     }
 
     /// Stone floor with its top at y = 64 over x, z in -32..48.
@@ -479,13 +541,23 @@ mod tests {
         }
         let path = find(&world, start(), Goal::Column { x: 0, z: 10 }, 10_000).unwrap();
         assert!(path.complete);
-        assert!(path.points.iter().any(|p| p.cell.0.abs() >= 6), "went round the end of the wall");
-        assert!(path.points.iter().all(|p| p.cell.2 != 4 || p.cell.0.abs() > 5));
+        assert!(
+            path.points.iter().any(|p| p.cell.0.abs() >= 6),
+            "went round the end of the wall"
+        );
+        assert!(
+            path.points
+                .iter()
+                .all(|p| p.cell.2 != 4 || p.cell.0.abs() > 5)
+        );
         // Corners are not cut: next to the wall's end the path moves squarely.
         for pair in path.points.windows(2) {
             let (a, b) = (pair[0].cell, pair[1].cell);
             if a.0 != b.0 && a.2 != b.2 {
-                assert!(surface(&world, a.0, 64, b.2).is_some() && surface(&world, b.0, 64, a.2).is_some());
+                assert!(
+                    surface(&world, a.0, 64, b.2).is_some()
+                        && surface(&world, b.0, 64, a.2).is_some()
+                );
             }
         }
     }
@@ -508,7 +580,11 @@ mod tests {
         // The top of the higher wall is two up from the ledge: out of reach.
         let path = find(&world, start(), Goal::Column { x: 0, z: 6 }, 10_000).unwrap();
         assert!(!path.complete);
-        assert_eq!(path.points.last().unwrap().cell.2, 5, "ends as near as it can get");
+        assert_eq!(
+            path.points.last().unwrap().cell.2,
+            5,
+            "ends as near as it can get"
+        );
     }
 
     #[test]
@@ -550,7 +626,10 @@ mod tests {
         assert_eq!(surface(&world, 0, 65, 3), Some(65.0));
         assert_eq!(surface(&world, 0, 64, 3), None);
 
-        let fence = state("minecraft:oak_fence", "east=false,north=false,south=false,waterlogged=false,west=false");
+        let fence = state(
+            "minecraft:oak_fence",
+            "east=false,north=false,south=false,waterlogged=false,west=false",
+        );
         for x in -32..48 {
             world.set_block_state(x, 64, 8, fence);
         }
@@ -591,10 +670,16 @@ mod tests {
         let a = Vec3::new(0.5, 64.0, 0.5);
         assert!(line_walkable(&world, a, Vec3::new(6.5, 64.0, 3.5)));
         world.set_block_state(3, 64, 2, 1);
-        assert!(!line_walkable(&world, a, Vec3::new(6.5, 64.0, 3.5)), "a block in the way");
+        assert!(
+            !line_walkable(&world, a, Vec3::new(6.5, 64.0, 3.5)),
+            "a block in the way"
+        );
         world.set_block_state(3, 64, 2, 0);
         world.set_block_state(3, 63, 2, 0);
-        assert!(!line_walkable(&world, a, Vec3::new(6.5, 64.0, 3.5)), "a hole in the way");
+        assert!(
+            !line_walkable(&world, a, Vec3::new(6.5, 64.0, 3.5)),
+            "a hole in the way"
+        );
         // Along a wall is fine; along a drop is not.
         world.set_block_state(3, 63, 2, 1);
         for z in 0..8 {
@@ -602,8 +687,16 @@ mod tests {
             world.set_block_state(-1, 63, z, 0);
         }
         let b = Vec3::new(0.5, 64.0, 6.5);
-        assert!(!line_walkable(&world, Vec3::new(0.25, 64.0, 0.5), Vec3::new(0.25, 64.0, 6.5)));
-        assert!(line_walkable(&world, Vec3::new(0.69, 64.0, 0.5), Vec3::new(0.69, 64.0, 6.5)));
+        assert!(!line_walkable(
+            &world,
+            Vec3::new(0.25, 64.0, 0.5),
+            Vec3::new(0.25, 64.0, 6.5)
+        ));
+        assert!(line_walkable(
+            &world,
+            Vec3::new(0.69, 64.0, 0.5),
+            Vec3::new(0.69, 64.0, 6.5)
+        ));
         assert!(line_walkable(&world, a, b));
     }
 }

@@ -16,7 +16,8 @@ impl Encryptor {
     pub fn encrypt(&mut self, data: &mut [u8]) {
         // CFB8 has a one-byte block, so each byte is one block.
         for b in data {
-            self.0.encrypt_block_mut(GenericArray::from_mut_slice(std::slice::from_mut(b)));
+            self.0
+                .encrypt_block_mut(GenericArray::from_mut_slice(std::slice::from_mut(b)));
         }
     }
 }
@@ -28,7 +29,8 @@ impl Decryptor {
 
     pub fn decrypt(&mut self, data: &mut [u8]) {
         for b in data {
-            self.0.decrypt_block_mut(GenericArray::from_mut_slice(std::slice::from_mut(b)));
+            self.0
+                .decrypt_block_mut(GenericArray::from_mut_slice(std::slice::from_mut(b)));
         }
     }
 }

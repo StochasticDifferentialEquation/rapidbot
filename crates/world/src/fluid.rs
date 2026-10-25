@@ -44,12 +44,21 @@ pub fn fluid_at(world: &World, x: i32, y: i32, z: i32) -> Option<Fluid> {
         "minecraft:flowing_lava" => (FluidKind::Lava, false),
         _ => return None,
     };
-    Some(Fluid { kind, amount: info.fluid_amount, falling: info.fluid_falling, source })
+    Some(Fluid {
+        kind,
+        amount: info.fluid_amount,
+        falling: info.fluid_falling,
+        source,
+    })
 }
 
 /// `FlowingFluid.getHeight`: full if the same fluid is above.
 pub fn height(world: &World, fluid: Fluid, x: i32, y: i32, z: i32) -> f32 {
-    if fluid_at(world, x, y + 1, z).is_some_and(|above| above.kind == fluid.kind) { 1.0 } else { fluid.own_height() }
+    if fluid_at(world, x, y + 1, z).is_some_and(|above| above.kind == fluid.kind) {
+        1.0
+    } else {
+        fluid.own_height()
+    }
 }
 
 /// `FluidState.getHeightForCamera`: a source under a sturdy block fills
@@ -67,7 +76,11 @@ pub fn height_for_camera(world: &World, fluid: Fluid, x: i32, y: i32, z: i32) ->
 
 fn normalize(v: [f64; 3]) -> [f64; 3] {
     let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-    if len < 1.0e-5f32 as f64 { [0.0; 3] } else { [v[0] / len, v[1] / len, v[2] / len] }
+    if len < 1.0e-5f32 as f64 {
+        [0.0; 3]
+    } else {
+        [v[0] / len, v[1] / len, v[2] / len]
+    }
 }
 
 /// `FlowingFluid.isSolidFace`.
@@ -121,7 +134,9 @@ pub fn flow(world: &World, tags: &Tags, fluid: Fluid, x: i32, y: i32, z: i32) ->
     if fluid.falling {
         for (dx, dz, bit) in HORIZONTAL {
             let (nx, nz) = (x + dx, z + dz);
-            if is_solid_face(world, fluid.kind, nx, y, nz, bit) || is_solid_face(world, fluid.kind, nx, y + 1, nz, bit) {
+            if is_solid_face(world, fluid.kind, nx, y, nz, bit)
+                || is_solid_face(world, fluid.kind, nx, y + 1, nz, bit)
+            {
                 let n = normalize(result);
                 result = [n[0], n[1] - 6.0, n[2]];
                 break;
@@ -189,7 +204,13 @@ mod tests {
         // Flow at the middle of the slope points east (+x).
         let f = flow(&world, &Tags::default(), mid, 5, 64, 8);
         assert!(f[0] > 0.9 && f[2].abs() < 0.5, "{f:?}");
-        assert!(contains_any_liquid(&world, &Aabb::new(5.2, 64.0, 8.2, 5.8, 65.8, 8.8)));
-        assert!(!contains_any_liquid(&world, &Aabb::new(10.2, 64.0, 8.2, 10.8, 65.8, 8.8)));
+        assert!(contains_any_liquid(
+            &world,
+            &Aabb::new(5.2, 64.0, 8.2, 5.8, 65.8, 8.8)
+        ));
+        assert!(!contains_any_liquid(
+            &world,
+            &Aabb::new(10.2, 64.0, 8.2, 10.8, 65.8, 8.8)
+        ));
     }
 }

@@ -72,7 +72,10 @@ fn falls_with_vanilla_velocities() {
     // First tick: v = (0 - 0.08) * 0.98.
     assert_eq!(p.delta_movement.y, -0.0784000015258789);
     p.tick(&world, &tags);
-    assert_eq!(p.delta_movement.y, (-0.0784000015258789 - 0.08) * 0.9800000190734863);
+    assert_eq!(
+        p.delta_movement.y,
+        (-0.0784000015258789 - 0.08) * 0.9800000190734863
+    );
     for _ in 0..40 {
         p.tick(&world, &tags);
     }
@@ -123,7 +126,11 @@ fn run_forward(sprint: bool, ticks: usize) -> Player {
     let tags = Tags::default();
     let mut p = player_at(0.5, 64.0, 0.5);
     p.tick(&world, &tags);
-    p.held_keys = Keys { forward: true, sprint, ..Keys::default() };
+    p.held_keys = Keys {
+        forward: true,
+        sprint,
+        ..Keys::default()
+    };
     for _ in 0..ticks {
         p.tick(&world, &tags);
     }
@@ -154,7 +161,10 @@ fn jump_arc() {
     let tags = Tags::default();
     let mut p = player_at(0.5, 64.0, 0.5);
     settle(&mut p, &world, &tags);
-    p.held_keys = Keys { jump: true, ..Keys::default() };
+    p.held_keys = Keys {
+        jump: true,
+        ..Keys::default()
+    };
     p.tick(&world, &tags);
     // Jump power 0.42F (as a double) moved first, then gravity and drag.
     assert_eq!(p.pos.y, 64.0 + 0.41999998688697815);
@@ -164,7 +174,11 @@ fn jump_arc() {
         p.tick(&world, &tags);
         max_y = max_y.max(p.pos.y);
     }
-    assert!((max_y - 64.0 - 1.2522).abs() < 1e-3, "apex {}", max_y - 64.0);
+    assert!(
+        (max_y - 64.0 - 1.2522).abs() < 1e-3,
+        "apex {}",
+        max_y - 64.0
+    );
     assert!(p.on_ground);
     assert_eq!(p.pos.y, 64.0);
 }
@@ -191,7 +205,10 @@ fn steps_up_a_slab_but_not_a_full_block() {
     }
     let mut p = player_at(0.5, 64.0, 0.5);
     p.tick(&world, &tags);
-    p.held_keys = Keys { forward: true, ..Keys::default() };
+    p.held_keys = Keys {
+        forward: true,
+        ..Keys::default()
+    };
     for _ in 0..40 {
         p.tick(&world, &tags);
     }
@@ -215,7 +232,11 @@ fn sneaking_stops_at_the_edge() {
     }
     let mut p = player_at(0.5, 64.0, 0.5);
     p.tick(&world, &tags);
-    p.held_keys = Keys { forward: true, shift: true, ..Keys::default() };
+    p.held_keys = Keys {
+        forward: true,
+        shift: true,
+        ..Keys::default()
+    };
     for _ in 0..200 {
         p.tick(&world, &tags);
     }
@@ -231,7 +252,10 @@ fn ice_is_slippery() {
     let tags = Tags::default();
     let mut p = player_at(0.5, 64.0, 0.5);
     p.tick(&world, &tags);
-    p.held_keys = Keys { forward: true, ..Keys::default() };
+    p.held_keys = Keys {
+        forward: true,
+        ..Keys::default()
+    };
     for _ in 0..30 {
         p.tick(&world, &tags);
     }
@@ -243,4 +267,3 @@ fn ice_is_slippery() {
     // On stone a player stops within a few ticks; on ice they slide on.
     assert!(p.pos.z - start > 1.0, "slid {}", p.pos.z - start);
 }
-
