@@ -18,7 +18,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
+    - name: Build
+      run: cargo build --workspace --all-targets --locked --verbose
+    - name: Run tests
+      run: cargo test --workspace --locked --verbose
+
+  windows:
+    name: Windows recorder
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v7
     - name: Build
       run: cargo build --workspace --all-targets --locked --verbose
     - name: Run tests
