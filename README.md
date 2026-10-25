@@ -86,6 +86,21 @@ the Java client sends, because servers can check their pack host's log.
 `crates/rapidbot/examples/embed.rs` is a complete example. Several bots can
 run in one process; each has its own main thread.
 
+## Recording your own input
+
+`rapidbot-recorder` is a Windows tool for fitting the input models to a real
+player. It records mouse movement, mouse buttons, and game keys only while a
+Minecraft window is focused; chat and other typing are never captured.
+
+```sh
+cargo run --release -p rapidbot-recorder -- record session.csv
+cargo run --release -p rapidbot-recorder -- analyze session.csv 0.5 > profile.json
+```
+
+Load the resulting profile with `ClientConfig::mouse_profile`. The recorder
+reports panics to Sentry by default. Set `RAPIDBOT_SENTRY_DSN` to use another
+DSN, or to an empty string to disable error reporting.
+
 ## Development
 
 ```sh

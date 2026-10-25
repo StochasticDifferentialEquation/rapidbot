@@ -10,20 +10,36 @@
 //! 1-9, E, Q, F). Other keys are ignored, so chat and passwords are never
 //! captured. Each line is `microseconds,kind,a,b`:
 //! `m,dx,dy` movement, `b,button,down`, `k,name,down`, `f,focused,0`.
+//!
+//! Set `RAPIDBOT_SENTRY_DSN` to override the error-reporting target, or to an
+//! empty string to disable error reporting.
 
 mod analyze;
 #[cfg(windows)]
 mod record;
 
+/// Used when `RAPIDBOT_SENTRY_DSN` is not set.
+const DEFAULT_SENTRY_DSN: &str =
+    "https://023f178131cc96624f4f5b5fd37d2d4b@o4512307547013120.ingest.us.sentry.io/4512307554025472";
+
+/// Returns the DSN to use, or `None` when reporting is disabled.
+fn sentry_dsn(override_value: Option<String>) -> Option<String> {
+    match override_value {
+        Some(dsn) if dsn.is_empty() => None,
+        Some(dsn) => Some(dsn),
+        None => Some(DEFAULT_SENTRY_DSN.to_owned()),
+    }
+}
+
 fn main() {
-    let _guard = sentry::init((
-        "https://023f178131cc96624f4f5b5fd37d2d4b@o4512307547013120.ingest.us.sentry.io/4512307554025472",
-        sentry::ClientOptions {
-            release: sentry::release_name!(),
-            send_default_pii: true,
-            ..Default::default()
-        },
-    ));
+    let dsn = sentry_dsn(std::env::var("RAPIDBOT_SENTRY_DSN").ok());
+    let mut sentry_options = sentry::ClientOptions::default();
+    sentry_options.release = sentry::release_name!();
+    // The recorder only reads movement keys and mouse input. Do not attach
+    // request data, user identifiers, or the machine's hostname by default.
+    sentry_options.send_default_pii = false;
+    sentry_options.server_name = Some("rapidbot-recorder".into());
+    let _guard = dsn.map(|dsn| sentry::init((dsn, sentry_options)));
 
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -53,5 +69,20 @@ fn main() {
             eprintln!("usage:\n  rapidbot-recorder record <file.csv>\n  rapidbot-recorder analyze <file.csv> [sensitivity]");
             std::process::exit(2);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sentry_dsn_can_be_overridden_or_disabled() {
+        assert_eq!(sentry_dsn(None), Some(DEFAULT_SENTRY_DSN.to_owned()));
+        assert_eq!(
+            sentry_dsn(Some("https://example.invalid/1".to_owned())),
+            Some("https://example.invalid/1".to_owned())
+        );
+        assert_eq!(sentry_dsn(Some(String::new())), None);
     }
 }
