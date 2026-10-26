@@ -471,7 +471,7 @@ impl Player {
                         if current.2 < 0.4 {
                             flow = flow.scale(current.2);
                         }
-                        current.0 = current.0.add(flow);
+                        current.0 = current.0.plus(flow);
                         current.1 += 1;
                     }
                 }
@@ -511,7 +511,7 @@ impl Player {
         {
             impulse = impulse.normalize().scale(0.0045000000000000005);
         }
-        self.delta_movement = old.add(impulse);
+        self.delta_movement = old.plus(impulse);
     }
 
     /// `LivingEntity.onClimbable`.
@@ -672,7 +672,7 @@ impl Player {
             // goDownInWater
             self.delta_movement = self
                 .delta_movement
-                .add(Vec3::new(0.0, -0.04f32 as f64, 0.0));
+                .plus(Vec3::new(0.0, -0.04f32 as f64, 0.0));
         }
 
         // Flying up and down.
@@ -686,7 +686,7 @@ impl Player {
             }
             if input_ya != 0 {
                 let dy = (input_ya as f32 * self.abilities.flying_speed * 3.0f32) as f64;
-                self.delta_movement = self.delta_movement.add(Vec3::new(0.0, dy, 0.0));
+                self.delta_movement = self.delta_movement.plus(Vec3::new(0.0, dy, 0.0));
             }
         }
 
@@ -753,6 +753,7 @@ impl Player {
     }
 
     /// `LivingEntity.aiStep`.
+    #[allow(clippy::neg_cmp_op_on_partial_ord)] // Vanilla's negated float comparisons keep NaN false.
     fn living_ai_step(&mut self, ctx: &Ctx<'_>) {
         if self.no_jump_delay > 0 {
             self.no_jump_delay -= 1;
@@ -796,11 +797,14 @@ impl Player {
                 } else {
                     // jumpInLiquid(LAVA)
                     self.delta_movement =
-                        self.delta_movement.add(Vec3::new(0.0, 0.04f32 as f64, 0.0));
+                        self.delta_movement
+                            .plus(Vec3::new(0.0, 0.04f32 as f64, 0.0));
                 }
             } else {
                 // jumpInLiquid(WATER)
-                self.delta_movement = self.delta_movement.add(Vec3::new(0.0, 0.04f32 as f64, 0.0));
+                self.delta_movement = self
+                    .delta_movement
+                    .plus(Vec3::new(0.0, 0.04f32 as f64, 0.0));
             }
         } else {
             self.no_jump_delay = 0;
@@ -821,7 +825,7 @@ impl Player {
         match movements.last() {
             None => movements.push((self.old_pos, self.pos, None)),
             Some(&(_, to, _)) => {
-                let d = to.add(self.pos.scale(-1.0));
+                let d = to.plus(self.pos.scale(-1.0));
                 if d.length_sqr() > 9.9999994e-11f32 as f64 {
                     movements.push((to, self.pos, None));
                 }
@@ -847,7 +851,7 @@ impl Player {
         // `Direction.axisStepOrder`.
         let mut visited: Vec<(i32, i32, i32)> = Vec::new();
         for (from, to, original) in movements {
-            let delta = to.add(from.scale(-1.0));
+            let delta = to.plus(from.scale(-1.0));
             match original {
                 Some(original) if delta.length_sqr() > 0.0 => {
                     let steps = if original.x.abs() < original.z.abs() {
@@ -866,7 +870,7 @@ impl Player {
                     let mut pos = from;
                     for (x, y, z) in steps {
                         if x != 0.0 || y != 0.0 || z != 0.0 {
-                            let next = pos.add(Vec3::new(x, y, z));
+                            let next = pos.plus(Vec3::new(x, y, z));
                             self.check_inside_blocks(ctx, pos, next, &mut visited);
                             pos = next;
                         }
@@ -891,7 +895,7 @@ impl Player {
     ) {
         let shrink = 1.0e-5f32 as f64;
         let at_target = make_bounding_box(self.pose, to).deflate(shrink, shrink, shrink);
-        let travel = to.add(from.scale(-1.0));
+        let travel = to.plus(from.scale(-1.0));
         let moved_far = travel.length_sqr() > 0.9999900000002526 * 0.9999900000002526;
         let hull = if travel.length_sqr() < (1.0e-5f32 as f64) * (1.0e-5f32 as f64) {
             at_target
@@ -936,6 +940,7 @@ impl Player {
     }
 
     /// `Block.entityInside` for the blocks that push the player about.
+    #[allow(clippy::neg_cmp_op_on_partial_ord)] // Vanilla's negated float comparisons keep NaN false.
     fn entity_inside(
         &mut self,
         ctx: &Ctx<'_>,
@@ -987,23 +992,21 @@ impl Player {
                 }
             }
             // BubbleColumnBlock
-            "minecraft:bubble_column" => {
-                if is_precise && !self.abilities.flying {
-                    let drag_down = ctx.registry.property(state, "drag") == Some("true");
-                    let above = ctx.world.block_state_or_air(pos.0, pos.1 + 1, pos.2);
-                    let nothing_above = ctx.registry.collision_shape(above).is_none()
-                        && ctx.registry.state(above).fluid.is_empty();
-                    let m = self.delta_movement;
-                    let y = match (nothing_above, drag_down) {
-                        (true, true) => rapidbot_world::aabb::java_max(-0.9, m.y - 0.03),
-                        (true, false) => rapidbot_world::aabb::java_min(1.8, m.y + 0.1),
-                        (false, true) => rapidbot_world::aabb::java_max(-0.3, m.y - 0.03),
-                        (false, false) => rapidbot_world::aabb::java_min(0.7, m.y + 0.06),
-                    };
-                    self.delta_movement = Vec3::new(m.x, y, m.z);
-                    if !nothing_above {
-                        self.fall_distance = 0.0;
-                    }
+            "minecraft:bubble_column" if is_precise && !self.abilities.flying => {
+                let drag_down = ctx.registry.property(state, "drag") == Some("true");
+                let above = ctx.world.block_state_or_air(pos.0, pos.1 + 1, pos.2);
+                let nothing_above = ctx.registry.collision_shape(above).is_none()
+                    && ctx.registry.state(above).fluid.is_empty();
+                let m = self.delta_movement;
+                let y = match (nothing_above, drag_down) {
+                    (true, true) => rapidbot_world::aabb::java_max(-0.9, m.y - 0.03),
+                    (true, false) => rapidbot_world::aabb::java_min(1.8, m.y + 0.1),
+                    (false, true) => rapidbot_world::aabb::java_max(-0.3, m.y - 0.03),
+                    (false, false) => rapidbot_world::aabb::java_min(0.7, m.y + 0.06),
+                };
+                self.delta_movement = Vec3::new(m.x, y, m.z);
+                if !nothing_above {
+                    self.fall_distance = 0.0;
                 }
             }
             _ => {}
@@ -1061,7 +1064,7 @@ impl Player {
             );
             if self.sprinting {
                 let angle = self.y_rot * DEG_TO_RAD;
-                self.delta_movement = self.delta_movement.add(Vec3::new(
+                self.delta_movement = self.delta_movement.plus(Vec3::new(
                     -(math::sin(angle as f64) as f64) * 0.2,
                     0.0,
                     math::cos(angle as f64) as f64 * 0.2,
@@ -1085,7 +1088,7 @@ impl Player {
                 || fluid::fluid_at(ctx.world, above.0, above.1, above.2).is_some()
             {
                 let m = self.delta_movement;
-                self.delta_movement = m.add(Vec3::new(0.0, (look_y - m.y) * multiplier, 0.0));
+                self.delta_movement = m.plus(Vec3::new(0.0, (look_y - m.y) * multiplier, 0.0));
             }
         }
         // Player.travel: flying keeps the vertical speed from before the
@@ -1159,7 +1162,7 @@ impl Player {
             if base_gravity != 0.0 {
                 self.delta_movement =
                     self.delta_movement
-                        .add(Vec3::new(0.0, -base_gravity / 4.0, 0.0));
+                        .plus(Vec3::new(0.0, -base_gravity / 4.0, 0.0));
             }
         }
         // jumpOutOfFluid
@@ -1213,10 +1216,10 @@ impl Player {
         let gravity = self.effective_gravity();
         let cos = (lean as f64).cos();
         let lift = cos * cos;
-        m = m.add(Vec3::new(0.0, gravity * (-1.0 + lift * 0.75), 0.0));
+        m = m.plus(Vec3::new(0.0, gravity * (-1.0 + lift * 0.75), 0.0));
         if m.y < 0.0 && look_hor > 0.0 {
             let convert = m.y * -0.1 * lift;
-            m = m.add(Vec3::new(
+            m = m.plus(Vec3::new(
                 look.x * convert / look_hor,
                 convert,
                 look.z * convert / look_hor,
@@ -1224,14 +1227,14 @@ impl Player {
         }
         if lean < 0.0 && look_hor > 0.0 {
             let convert = move_hor * (-math::sin(lean as f64)) as f64 * 0.04;
-            m = m.add(Vec3::new(
+            m = m.plus(Vec3::new(
                 -look.x * convert / look_hor,
                 convert * 3.2,
                 -look.z * convert / look_hor,
             ));
         }
         if look_hor > 0.0 {
-            m = m.add(Vec3::new(
+            m = m.plus(Vec3::new(
                 (look.x / look_hor * move_hor - m.x) * 0.1,
                 0.0,
                 (look.z / look_hor * move_hor - m.z) * 0.1,
@@ -1367,14 +1370,14 @@ impl Player {
             movement.y,
             movement.z * cos + movement.x * sin,
         );
-        self.delta_movement = self.delta_movement.add(delta);
+        self.delta_movement = self.delta_movement.plus(delta);
     }
 
     /// `Entity.move(MoverType.SELF, delta)` via `LocalPlayer.move`.
     fn move_self(&mut self, ctx: &Ctx<'_>, delta: Vec3) {
         if self.spectator {
             // noPhysics
-            self.set_pos(self.pos.add(delta));
+            self.set_pos(self.pos.plus(delta));
             self.horizontal_collision = false;
             self.vertical_collision = false;
             self.vertical_collision_below = false;
@@ -1395,7 +1398,7 @@ impl Player {
         if movement_length > 1.0e-7 || delta.length_sqr() - movement_length < 1.0e-7 {
             if self.fall_distance != 0.0 && movement_length >= 1.0 {
                 let check_distance = movement_length.sqrt().min(8.0);
-                let check_to = self.pos.add(movement.normalize().scale(check_distance));
+                let check_to = self.pos.plus(movement.normalize().scale(check_distance));
                 if rapidbot_world::raycast::fall_damage_resetting(
                     ctx.world,
                     ctx.tags,
@@ -1405,7 +1408,7 @@ impl Player {
                     self.fall_distance = 0.0;
                 }
             }
-            let new_pos = self.pos.add(movement);
+            let new_pos = self.pos.plus(movement);
             self.movements.push((self.pos, new_pos, Some(delta)));
             self.set_pos(new_pos);
         }
@@ -1461,6 +1464,7 @@ impl Player {
     }
 
     /// `Entity.restituteMovementAfterCollisions`.
+    #[allow(clippy::neg_cmp_op_on_partial_ord)] // Vanilla's negated float comparisons keep NaN false.
     fn restitute_movement_after_collisions(
         &mut self,
         ctx: &Ctx<'_>,
@@ -1692,6 +1696,7 @@ impl Player {
     }
 
     /// `Entity.getOnPos(float)`.
+    #[allow(clippy::neg_cmp_op_on_partial_ord)] // Vanilla's negated float comparisons keep NaN false.
     pub fn on_pos(&self, ctx: &Ctx<'_>, offset: f32) -> (i32, i32, i32) {
         if let Some(support) = self.main_supporting_block {
             if !(offset > 1.0e-5) {
@@ -1899,13 +1904,7 @@ fn modify_input_speed_for_square_movement(x: f32, y: f32) -> (f32, f32) {
 }
 
 fn java_min_f32(a: f32, b: f32) -> f32 {
-    if a.is_nan() {
-        a
-    } else if a <= b {
-        a
-    } else {
-        b
-    }
+    if a.is_nan() || a <= b { a } else { b }
 }
 
 /// `Entity.collideWithShapes`.
@@ -1933,6 +1932,7 @@ fn collide_with_shapes(movement: Vec3, bbox: &Aabb, shapes: &[PlacedShape<'_>]) 
 
 /// `Entity.collectCandidateStepUpHeights`: distinct Y coordinates of the
 /// colliders above the box bottom, up to the max step, ascending.
+#[allow(clippy::neg_cmp_op_on_partial_ord)] // Vanilla's negated float comparisons keep NaN false.
 fn collect_candidate_step_up_heights(
     bbox: &Aabb,
     colliders: &[PlacedShape<'_>],

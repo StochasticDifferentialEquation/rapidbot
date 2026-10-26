@@ -75,13 +75,13 @@ pub async fn resolve(input: &str) -> Result<ResolvedAddress, ResolveError> {
 
     if port == DEFAULT_PORT && host.parse::<IpAddr>().is_err() {
         let name = format!("_minecraft._tcp.{host}");
-        if let Ok(lookup) = resolver.srv_lookup(name.as_str()).await {
-            if let Some(srv) = lookup.iter().next() {
-                // Keep the trailing dot, as JNDI does.
-                host = srv.target().to_string();
-                port = srv.port();
-                debug!(%host, port, "SRV redirect");
-            }
+        if let Ok(lookup) = resolver.srv_lookup(name.as_str()).await
+            && let Some(srv) = lookup.iter().next()
+        {
+            // Keep the trailing dot, as JNDI does.
+            host = srv.target().to_string();
+            port = srv.port();
+            debug!(%host, port, "SRV redirect");
         }
     }
 

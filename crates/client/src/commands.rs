@@ -141,10 +141,9 @@ impl CommandTree {
                 name,
                 parser: Parser::Message,
             } = &self.nodes[child].kind
+                && signing
             {
-                if signing {
-                    arguments.push((name.clone(), input[start..end].to_owned()));
-                }
+                arguments.push((name.clone(), input[start..end].to_owned()));
             }
             let mut reached = end;
             let redirect = self.nodes[child].redirect;

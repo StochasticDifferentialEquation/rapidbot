@@ -44,7 +44,7 @@ impl Controller for Digger {
         };
         let Some(point) = aim_point(ctx.player, ctx.world, target) else {
             ctx.hold_attack(false);
-            if ctx.tick % 40 == 0 {
+            if ctx.tick.is_multiple_of(40) {
                 let p = ctx.player.pos;
                 tracing::warn!(?target, x = p.x, y = p.y, z = p.z, crosshair = ?ctx.crosshair, "cannot see the block from here");
             }
@@ -81,7 +81,9 @@ async fn main() {
     let numbers: Vec<i32> = args.filter_map(|v| v.parse().ok()).collect();
     let controller = Digger {
         targets: numbers
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|c| (c[0], c[1], c[2]))
             .collect(),
         slot: std::env::var("RAPIDBOT_SLOT")

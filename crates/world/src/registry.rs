@@ -301,6 +301,8 @@ impl Registry {
     }
 }
 
+type RawState = (u32, u16, u8, u8, String, u8, u8, String, u8, u16, f32, u16);
+
 #[derive(Deserialize)]
 struct RawData {
     version: String,
@@ -313,7 +315,7 @@ struct RawData {
     blocks: Vec<RawBlock>,
     entity_dimensions: Vec<(f32, f32, f32)>,
     entity_info: Vec<(u32, String)>,
-    states: Vec<(u32, u16, u8, u8, String, u8, u8, String, u8, u16, f32, u16)>,
+    states: Vec<RawState>,
 }
 
 #[derive(Deserialize)]

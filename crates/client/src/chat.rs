@@ -137,10 +137,10 @@ impl SignatureCache {
         let mut i = 0;
         while let Some(next) = (i < self.entries.len()).then(|| queue.pop_back()).flatten() {
             let old = self.entries[i].replace(next);
-            if let Some(old) = old {
-                if !new.contains(&old) {
-                    queue.push_front(old);
-                }
+            if let Some(old) = old
+                && !new.contains(&old)
+            {
+                queue.push_front(old);
             }
             i += 1;
         }

@@ -21,7 +21,7 @@ struct Fly;
 impl Controller for Fly {
     fn tick(&mut self, ctx: &mut TickContext<'_>) {
         let p = &*ctx.player;
-        if ctx.tick % 10 == 0 {
+        if ctx.tick.is_multiple_of(10) {
             tracing::info!(
                 tick = ctx.tick,
                 y = p.pos.y,
@@ -59,7 +59,7 @@ impl Controller for Fly {
                 ..Keys::default()
             },
             _ => {
-                if t % 20 == 0 {
+                if t.is_multiple_of(20) {
                     tracing::info!(on_ground = p.on_ground, "landed, flight ended");
                 }
                 Keys::default()

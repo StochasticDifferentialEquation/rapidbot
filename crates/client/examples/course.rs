@@ -24,16 +24,16 @@ struct Course {
 
 impl Controller for Course {
     fn tick(&mut self, ctx: &mut TickContext<'_>) {
-        if ctx.tick == 40 {
-            if let Some(slot) = self.slot {
-                ctx.select_slot(slot);
-            }
+        if ctx.tick == 40
+            && let Some(slot) = self.slot
+        {
+            ctx.select_slot(slot);
         }
         if ctx.inventory.container.is_some() {
             ctx.close_container();
         }
         let p = &*ctx.player;
-        if ctx.tick % 100 == 0 {
+        if ctx.tick.is_multiple_of(100) {
             let held = ctx.inventory.held().map_or("nothing", |s| s.name());
             tracing::info!(
                 slot = ctx.inventory.selected,
@@ -42,7 +42,7 @@ impl Controller for Course {
                 "inventory"
             );
         }
-        if ctx.tick % 20 == 0 {
+        if ctx.tick.is_multiple_of(20) {
             tracing::info!(
                 x = p.pos.x,
                 y = p.pos.y,

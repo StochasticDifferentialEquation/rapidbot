@@ -128,10 +128,10 @@ unsafe extern "system" fn window_proc(
                 size_of::<RAWINPUTHEADER>() as u32,
             )
         };
-        if read != u32::MAX {
-            if let Some(recorder) = RECORDER.lock().unwrap().as_mut() {
-                recorder.handle(&input);
-            }
+        if read != u32::MAX
+            && let Some(recorder) = RECORDER.lock().unwrap().as_mut()
+        {
+            recorder.handle(&input);
         }
     }
     unsafe { DefWindowProcW(window, message, wparam, lparam) }

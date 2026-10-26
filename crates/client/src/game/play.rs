@@ -233,15 +233,15 @@ impl PlayState {
         };
         self.load = Some(load);
         // isLevelReady(): close delay is 0 for a normal join.
-        if let LoadState::Ready { ready_at } = load {
-            if now >= ready_at {
-                self.load = None;
-                if !self.client_loaded {
-                    net.send(&sb::PlayerLoaded);
-                    self.client_loaded = true;
-                    info!("player loaded");
-                    return true;
-                }
+        if let LoadState::Ready { ready_at } = load
+            && now >= ready_at
+        {
+            self.load = None;
+            if !self.client_loaded {
+                net.send(&sb::PlayerLoaded);
+                self.client_loaded = true;
+                info!("player loaded");
+                return true;
             }
         }
         false
@@ -533,7 +533,7 @@ impl Game {
                 let play = play_mut(&mut self.play)?;
                 if let Some(k) = explode.player_knockback {
                     let v = Vec3::new(k.x, k.y, k.z);
-                    play.player.physics.delta_movement = play.player.physics.delta_movement.add(v);
+                    play.player.physics.delta_movement = play.player.physics.delta_movement.plus(v);
                 }
             }
             cb::PlayerLookAt::ID => {
@@ -623,15 +623,15 @@ impl Game {
                 let entity = VarInt::decode(&mut body)?.0;
                 let effect = VarInt::decode(&mut body)?.0;
                 let play = play_mut(&mut self.play)?;
-                if entity == play.player.id {
-                    if let Some(name) = Registry::get().mob_effects.get(effect as usize) {
-                        let amplifier = if packet.id == ids::UPDATE_MOB_EFFECT {
-                            Some(VarInt::decode(&mut body)?.0)
-                        } else {
-                            None
-                        };
-                        play.player.physics.effects.set(name, amplifier);
-                    }
+                if entity == play.player.id
+                    && let Some(name) = Registry::get().mob_effects.get(effect as usize)
+                {
+                    let amplifier = if packet.id == ids::UPDATE_MOB_EFFECT {
+                        Some(VarInt::decode(&mut body)?.0)
+                    } else {
+                        None
+                    };
+                    play.player.physics.effects.set(name, amplifier);
                 }
             }
             ids::SET_ENTITY_DATA => {

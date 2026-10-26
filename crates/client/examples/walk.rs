@@ -41,7 +41,7 @@ impl Controller for Wander {
         }
         self.walker.tick(ctx);
 
-        if ctx.tick % 100 == 0 && std::env::var_os("RAPIDBOT_DEBUG_BLOCKS").is_some() {
+        if ctx.tick.is_multiple_of(100) && std::env::var_os("RAPIDBOT_DEBUG_BLOCKS").is_some() {
             // What the bot thinks is around it, for diagnosing stuck spots.
             let registry = rapidbot_client::world::Registry::get();
             let (bx, by, bz) = (
@@ -69,7 +69,7 @@ impl Controller for Wander {
             let p = &ctx.player;
             tracing::info!(delta = ?p.delta_movement, hc = p.horizontal_collision, vc = p.vertical_collision, support = ?p.main_supporting_block, keys = ?p.held_keys, "state");
         }
-        if ctx.tick % 100 == 0 {
+        if ctx.tick.is_multiple_of(100) {
             let p = &ctx.player;
             tracing::info!(
                 x = p.pos.x,
