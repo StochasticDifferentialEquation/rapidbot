@@ -3,8 +3,9 @@
 //! [`Walker`] takes a controller somewhere on foot. It plans a route with
 //! [`crate::path`] (a moment of standing still, spread over a few ticks),
 //! then follows it using the mouse and keyboard input models, cutting across
-//! open ground instead of following the grid and hopping up blocks. Where no
-//! route can be planned (in water, in mid-air) it heads straight for the goal.
+//! open ground instead of following the grid and hopping up blocks. Routes
+//! cross deep water by swimming at the surface. Where no route can be planned
+//! (in mid-air, or from under water) it heads straight for the goal.
 
 use rapidbot_human::Noise;
 use rapidbot_physics::Keys;
@@ -382,10 +383,20 @@ mod tests {
     use rapidbot_physics::Player;
     use rapidbot_world::chunk::Chunk;
     use rapidbot_world::tags::Tags;
-    use rapidbot_world::{DimensionHeight, World};
+    use rapidbot_world::{DimensionHeight, Registry, World};
 
     use super::*;
     use crate::MouseSettings;
+
+    fn state(name: &str, properties: &str) -> u32 {
+        let registry = Registry::get();
+        let block = registry.block_by_name(name).unwrap();
+        registry
+            .states
+            .iter()
+            .position(|s| s.block == block.id && s.properties.contains(properties))
+            .unwrap() as u32
+    }
 
     /// Runs walker + mouse + physics the way the game loop does: per tick
     /// the controller then physics, then three 60 fps mouse frames.
@@ -513,6 +524,58 @@ mod tests {
         assert!((p.x - 0.5).hypot(p.z - 20.0) < 0.6);
         // About 27 blocks of walking; a detour, not a crawl along the grid.
         assert!(ticks < 260, "took {ticks} ticks");
+    }
+
+    #[test]
+    fn swims_across_a_deep_channel() {
+        let mut sim = Sim::new();
+        let water = state("minecraft:water", "level=0");
+        // A two-wide channel deeper than the player across the route.
+        for x in -8..=8 {
+            for z in 4..=5 {
+                for y in 58..=63 {
+                    sim.world.set_block_state(x, y, z, water);
+                }
+                sim.world.set_block_state(x, 57, z, 1);
+            }
+        }
+        sim.walker.go_to(Vec3::new(0.5, 64.0, 10.5));
+        let mut ticks = 0;
+        let mut wet = false;
+        while !sim.walker.arrived() {
+            sim.step();
+            wet |= sim.player.in_water;
+            ticks += 1;
+            assert!(ticks < 600, "never crossed, at {:?}", sim.player.pos);
+        }
+        assert!(!sim.walker.gave_up());
+        assert!(wet, "the route went through the water");
+        let p = sim.player.pos;
+        assert!((p.x - 0.5).hypot(p.z - 10.5) < 0.6, "ended at {p:?}");
+    }
+
+    #[test]
+    fn swims_out_after_dropping_into_water() {
+        let mut sim = Sim::new();
+        let water = state("minecraft:water", "level=0");
+        for x in -2..=2 {
+            for z in -2..=2 {
+                sim.world.set_block_state(x, 63, z, water);
+                sim.world.set_block_state(x, 62, z, water);
+                sim.world.set_block_state(x, 61, z, 1);
+            }
+        }
+        sim.player.set_pos(Vec3::new(0.5, 62.2, 0.5));
+        sim.walker.go_to(Vec3::new(0.5, 64.0, 8.5));
+        let mut ticks = 0;
+        while !sim.walker.arrived() {
+            sim.step();
+            ticks += 1;
+            assert!(ticks < 600, "never got out, at {:?}", sim.player.pos);
+        }
+        assert!(!sim.walker.gave_up());
+        let p = sim.player.pos;
+        assert!((p.x - 0.5).hypot(p.z - 8.5) < 0.6, "ended at {p:?}");
     }
 
     #[test]

@@ -4,8 +4,7 @@
 //! decides *where* to go. [`crate::nav::Walker`] turns the result into
 //! mouse and key input.
 //!
-//! Not handled yet: swimming across deep water, ladders, gap jumps, doors,
-//! breaking or placing blocks.
+//! Not handled yet: ladders, gap jumps, doors, breaking or placing blocks.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
@@ -13,6 +12,7 @@ use std::sync::OnceLock;
 
 use rapidbot_physics::math::Vec3;
 use rapidbot_world::collision::block_collisions;
+use rapidbot_world::fluid::{self, FluidKind};
 use rapidbot_world::{Aabb, Axis, Registry, World};
 
 /// Player box: 0.6 wide, 1.8 tall.
@@ -110,25 +110,43 @@ fn column_free(world: &World, x: i32, z: i32, y0: f64, y1: f64) -> bool {
 
 /// The height a player stands at with their feet in block cell (x, y, z):
 /// on a low shape in the cell itself (slab, carpet) or on the block below.
+/// In deep water, the top water cell is a place to float at the surface.
 /// `None` if there is nothing to stand on, no room, or it is harmful.
 pub fn surface(world: &World, x: i32, y: i32, z: i32) -> Option<f64> {
     let registry = Registry::get();
     let here = world.block_state(x, y, z)?;
-    let (s, floor) = match registry.collision_shape(here) {
-        Some(shape) => {
-            let top = shape.at(0, 0, 0).max(Axis::Y);
-            if top >= 1.0 {
-                return None;
+    let here_shape = registry.collision_shape(here);
+    // Only the top water cell, and only when the water is deep enough to
+    // swim: one-deep water is handled as wading on the block below.
+    let water_surface = if here_shape.is_none()
+        && let Some(fluid) = fluid::fluid_at(world, x, y, z)
+        && fluid.kind == FluidKind::Water
+        && fluid::fluid_at(world, x, y - 1, z).is_some_and(|f| f.kind == FluidKind::Water)
+        && !fluid::fluid_at(world, x, y + 1, z).is_some_and(|f| f.kind == FluidKind::Water)
+    {
+        Some(y as f64 + fluid::height(world, fluid, x, y, z) as f64)
+    } else {
+        None
+    };
+    let (s, floor) = if let Some(s) = water_surface {
+        (s, here)
+    } else {
+        match here_shape {
+            Some(shape) => {
+                let top = shape.at(0, 0, 0).max(Axis::Y);
+                if top >= 1.0 {
+                    return None;
+                }
+                (y as f64 + top, here)
             }
-            (y as f64 + top, here)
-        }
-        None => {
-            let below = world.block_state(x, y - 1, z)?;
-            let top = registry.collision_shape(below)?.at(0, 0, 0).max(Axis::Y);
-            if top < 1.0 {
-                return None;
+            None => {
+                let below = world.block_state(x, y - 1, z)?;
+                let top = registry.collision_shape(below)?.at(0, 0, 0).max(Axis::Y);
+                if top < 1.0 {
+                    return None;
+                }
+                (y as f64 + (top - 1.0), below)
             }
-            (y as f64 + (top - 1.0), below)
         }
     };
     let t = traits();
@@ -246,7 +264,7 @@ const DIAGONALS: [(i32, i32); 4] = [(1, 1), (1, -1), (-1, 1), (-1, -1)];
 
 impl Search {
     /// Starts from where the player stands (or the ground just below).
-    /// `None` if that is nowhere a path can start: in the air, in deep
+    /// `None` if that is nowhere a path can start: in the air, deep under
     /// water, in an unloaded chunk. `limit` caps the places examined.
     pub fn new(world: &World, from: Vec3, goal: Goal, limit: usize) -> Option<Self> {
         let (x, z) = (from.x.floor() as i32, from.z.floor() as i32);
@@ -662,6 +680,34 @@ mod tests {
         // Wading one block costs less than the walk to the bridge and back.
         assert_ne!(crossing(8).0, -6);
         assert_eq!(surface(&world, 0, 64, 4), None);
+    }
+
+    #[test]
+    fn swims_across_deep_water() {
+        let mut world = flat();
+        let water = state("minecraft:water", "level=0");
+        // A two-deep channel: too deep to wade, with stone underneath.
+        for x in -32..48 {
+            world.set_block_state(x, 63, 4, water);
+            world.set_block_state(x, 62, 4, water);
+            world.set_block_state(x, 61, 4, 1);
+        }
+        let path = find(&world, start(), Goal::Column { x: 0, z: 12 }, 40_000).unwrap();
+        assert!(path.complete);
+        let crossing = path.points.iter().find(|p| p.cell.2 == 4).unwrap();
+        assert_eq!(crossing.cell.1, 63, "the surface water cell");
+        let expected = 63.0 + 8.0 / 9.0;
+        assert!(
+            (crossing.surface - expected).abs() < 1.0e-6,
+            "float at the water top, got {}",
+            crossing.surface
+        );
+        assert!(
+            path.points
+                .windows(2)
+                .all(|p| (p[0].surface - p[1].surface).abs() < 1.5),
+            "no impossible jumps between waypoints"
+        );
     }
 
     #[test]
