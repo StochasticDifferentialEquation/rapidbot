@@ -1,10 +1,10 @@
 //! Finding a way across the block grid: A* over the places a player can
 //! stand, with the moves a person on foot makes (walk, step up, hop up a
-//! block, drop a few blocks). Not vanilla: this is bot logic, and it only
-//! decides *where* to go. [`crate::nav::Walker`] turns the result into
-//! mouse and key input.
+//! block, sprint-jump short gaps, drop a few blocks). Not vanilla: this is
+//! bot logic, and it only decides *where* to go. [`crate::nav::Walker`]
+//! turns the result into mouse and key input.
 //!
-//! Not handled yet: gap jumps, doors, breaking or placing blocks.
+//! Not handled yet: doors, breaking or placing blocks.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
@@ -23,6 +23,15 @@ const STEP: f64 = 0.6;
 const JUMP: f64 = 1.2;
 /// Falls of more than three blocks hurt.
 const MAX_DROP: f64 = 3.2;
+/// Landing up to three blocks from the takeoff: two empty blocks. Three
+/// empty blocks are possible in vanilla with perfect timing, but a bot
+/// should not need frame-perfect movement to reach a goal.
+const MAX_GAP: i32 = 3;
+/// Landing a block higher is fine; higher than a normal jump is not.
+const GAP_UP: f64 = 1.0;
+/// The player's head is this high at the top of a jump. A ceiling below it
+/// turns a would-be gap jump into a bumped head.
+const JUMP_HEADROOM: f64 = HEIGHT + 1.3;
 
 const DANGER: u8 = 1;
 const WATER: u8 = 2;
@@ -237,6 +246,8 @@ pub struct Waypoint {
     pub cell: (i32, i32, i32),
     /// Feet height when standing there.
     pub surface: f64,
+    /// Reached by a sprint jump over a gap, from the previous waypoint.
+    pub jump: bool,
 }
 
 impl Waypoint {
@@ -410,7 +421,64 @@ impl Search {
                 break;
             }
         }
+        self.gap_jumps(world, id, cell, s, cost);
         self.climb(world, id, cell, cost);
+    }
+
+    /// Sprint jumps across a short gap. The takeoff and landing are block
+    /// centres up to [`MAX_GAP`] apart; everything between has to be clear at
+    /// body and jump height. The walker builds up sprint speed and jumps at
+    /// the edge.
+    fn gap_jumps(&mut self, world: &World, id: u32, cell: (i32, i32, i32), s: f64, cost: f64) {
+        let (x, y, z) = cell;
+        // Jumping out of deep water or off a ladder is a different move.
+        if trait_at(world, x, y, z) & (WATER | CLIMB) != 0 {
+            return;
+        }
+        // There has to be room to rise off the takeoff block too.
+        if !column_free(world, x, z, s, s + JUMP_HEADROOM) {
+            return;
+        }
+        for (dx, dz) in CARDINALS {
+            for distance in 2..=MAX_GAP {
+                let (cx, cz) = (x + dx * (distance - 1), z + dz * (distance - 1));
+                // A walkable cell is not a gap; walking there is cheaper.
+                if self
+                    .surface(world, (cx, y, cz))
+                    .is_some_and(|s1| (s1 - s).abs() < 0.01)
+                {
+                    break;
+                }
+                if !column_free(world, cx, cz, s, s + JUMP_HEADROOM) {
+                    break;
+                }
+                let (lx, lz) = (x + dx * distance, z + dz * distance);
+                // The highest surface in the landing column that can be
+                // reached. A surface above the takeoff that is too high is
+                // skipped in favour of a lower one; below the drop limit
+                // there is nothing worth looking at.
+                for ny in (y - 4..=y + 1).rev() {
+                    let Some(s2) = self.surface(world, (lx, ny, lz)) else {
+                        continue;
+                    };
+                    let d = s2 - s;
+                    if d > GAP_UP {
+                        continue;
+                    }
+                    if d < -MAX_DROP {
+                        break;
+                    }
+                    // Jump onto dry ground. Dropping into deep water is a
+                    // different move, with its own way out.
+                    if trait_at(world, lx, ny, lz) & WATER != 0 {
+                        continue;
+                    }
+                    let step_cost = 1.0 + distance as f64 + d.abs() * 0.2;
+                    self.relax(world, id, (lx, ny, lz), s2, cost + step_cost);
+                    break;
+                }
+            }
+        }
     }
 
     /// Ladder and vine columns are climbed one block at a time. A player
@@ -494,10 +562,15 @@ impl Search {
             points.push(Waypoint {
                 cell: node.cell,
                 surface: node.surface,
+                jump: false,
             });
             id = node.parent;
         }
         points.reverse();
+        for i in 1..points.len() {
+            let (a, b) = (points[i - 1].cell, points[i].cell);
+            points[i].jump = (a.0 - b.0).abs().max((a.2 - b.2).abs()) > 1;
+        }
         let end = &self.nodes[self.best as usize];
         Path {
             points,
@@ -603,6 +676,10 @@ mod tests {
         // Ten diagonal moves.
         assert_eq!(path.points.len(), 11);
         assert_eq!(path.points[10].pos(), Vec3::new(10.5, 64.0, 10.5));
+        assert!(
+            path.points.iter().all(|p| !p.jump),
+            "diagonals are not gap jumps"
+        );
     }
 
     #[test]
@@ -724,17 +801,29 @@ mod tests {
             if x != 6 {
                 world.set_block_state(x, 63, 4, lava);
             }
-            if x != -6 {
-                world.set_block_state(x, 63, 8, water);
-                world.set_block_state(x, 62, 8, 1);
+            for z in 8..=10 {
+                if x != -6 {
+                    world.set_block_state(x, 63, z, water);
+                    world.set_block_state(x, 62, z, 1);
+                }
             }
         }
         let path = find(&world, start(), Goal::Column { x: 0, z: 12 }, 40_000).unwrap();
         assert!(path.complete);
-        let crossing = |z: i32| path.points.iter().find(|p| p.cell.2 == z).unwrap().cell;
-        assert_eq!(crossing(4).0, 6, "crossed the lava at the gap");
-        // Wading one block costs less than the walk to the bridge and back.
-        assert_ne!(crossing(8).0, -6);
+        assert!(
+            path.points
+                .iter()
+                .all(|p| trait_at(&world, p.cell.0, p.cell.1, p.cell.2) & DANGER == 0),
+            "stepped into lava"
+        );
+        // The trench is one block wide, so the route may jump it anywhere.
+        // If it chooses the stone gap instead there is a waypoint at z = 4.
+        if let Some(p) = path.points.iter().find(|p| p.cell.2 == 4) {
+            assert_eq!(p.cell.0, 6, "crossed the lava at the gap");
+        }
+        // Wading three blocks costs less than the walk to the bridge and back.
+        let crossing = path.points.iter().find(|p| p.cell.2 == 8).unwrap().cell;
+        assert_ne!(crossing.0, -6);
         assert_eq!(surface(&world, 0, 64, 4), None);
     }
 
@@ -742,11 +831,14 @@ mod tests {
     fn swims_across_deep_water() {
         let mut world = flat();
         let water = state("minecraft:water", "level=0");
-        // A two-deep channel: too deep to wade, with stone underneath.
+        // A three-wide, two-deep channel: too wide to jump and too deep to
+        // wade, with stone underneath.
         for x in -32..48 {
-            world.set_block_state(x, 63, 4, water);
-            world.set_block_state(x, 62, 4, water);
-            world.set_block_state(x, 61, 4, 1);
+            for z in 4..=6 {
+                world.set_block_state(x, 63, z, water);
+                world.set_block_state(x, 62, z, water);
+                world.set_block_state(x, 61, z, 1);
+            }
         }
         let path = find(&world, start(), Goal::Column { x: 0, z: 12 }, 40_000).unwrap();
         assert!(path.complete);
@@ -789,6 +881,56 @@ mod tests {
             path.points
         );
         assert_eq!(path.points.last().unwrap().pos(), Vec3::new(0.5, 68.0, 2.5));
+    }
+
+    #[test]
+    fn jumps_a_short_gap_but_not_a_wide_one() {
+        let mut world = flat();
+        // A two-block-wide trench right across the world. There is no way
+        // around, so crossing it means a jump.
+        for x in -32..48 {
+            for z in 4..=5 {
+                world.set_block_state(x, 63, z, 0);
+            }
+        }
+        let path = find(&world, start(), Goal::Column { x: 0, z: 8 }, 10_000).unwrap();
+        assert!(path.complete, "did not cross the gap");
+        let jump = path
+            .points
+            .iter()
+            .find(|p| p.jump)
+            .expect("no jump in the path");
+        assert_eq!(jump.cell.2, 6, "landed just past the gap");
+        assert_eq!(jump.surface, 64.0);
+        assert_eq!(
+            path.points.iter().filter(|p| p.jump).count(),
+            1,
+            "one jump is enough"
+        );
+
+        // Four empty blocks are beyond a reliable sprint jump.
+        for x in -32..48 {
+            for z in 4..=7 {
+                world.set_block_state(x, 63, z, 0);
+            }
+        }
+        let path = find(&world, start(), Goal::Column { x: 0, z: 9 }, 10_000).unwrap();
+        assert!(!path.complete, "crossed a gap that is too wide");
+    }
+
+    #[test]
+    fn does_not_jump_under_a_low_ceiling() {
+        let mut world = flat();
+        for x in -32..48 {
+            for z in 4..=5 {
+                world.set_block_state(x, 63, z, 0);
+                // A low ceiling over the gap only: standing on either side
+                // is fine, but there is no room to jump across.
+                world.set_block_state(x, 66, z, 1);
+            }
+        }
+        let path = find(&world, start(), Goal::Column { x: 0, z: 8 }, 10_000).unwrap();
+        assert!(!path.complete, "jumped into the ceiling");
     }
 
     #[test]

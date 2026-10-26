@@ -4,9 +4,9 @@
 //! [`crate::path`] (a moment of standing still, spread over a few ticks),
 //! then follows it using the mouse and keyboard input models, cutting across
 //! open ground instead of following the grid and hopping up blocks. Routes
-//! cross deep water by swimming at the surface and climb ladders and vines.
-//! Where no route can be planned (in mid-air, or from under water) it heads
-//! straight for the goal.
+//! sprint-jump short gaps, cross deep water by swimming at the surface, and
+//! climb ladders and vines. Where no route can be planned (in mid-air, or
+//! from under water) it heads straight for the goal.
 
 use rapidbot_human::Noise;
 use rapidbot_physics::Keys;
@@ -254,7 +254,7 @@ impl Walker {
                     self.give_up(ctx);
                     return;
                 }
-                self.steer(ctx, goal, distance, true);
+                self.steer(ctx, goal, distance, true, false);
             }
         }
     }
@@ -336,6 +336,27 @@ impl Walker {
         let run = flat(aim_at) + (path.points.len() - 1 - *target) as f64;
         let open = flat(aim_at);
 
+        // A sprint jump needs speed before the edge. Start sprinting while
+        // the jump is still a waypoint or two ahead, then jump just before
+        // the feet leave the takeoff block.
+        let jump_ahead = path.points[*next..(*next + 3).min(path.points.len())]
+            .iter()
+            .any(|w| w.jump);
+        if path.points[*next].jump && *next > 0 && ctx.player.on_ground {
+            let takeoff = path.points[*next - 1].pos();
+            let landing = path.points[*next].pos();
+            let (dx, dz) = (landing.x - takeoff.x, landing.z - takeoff.z);
+            let length = (dx * dx + dz * dz).sqrt();
+            if length > 0.0 {
+                let (ux, uz) = (dx / length, dz / length);
+                let along = (pos.x - takeoff.x) * ux + (pos.z - takeoff.z) * uz;
+                let across = ((pos.x - takeoff.x) * uz - (pos.z - takeoff.z) * ux).abs();
+                if along > 0.15 && across < 0.45 && flat(landing) > 0.5 {
+                    self.jump_hold = self.jump_hold.max(2);
+                }
+            }
+        }
+
         let to_next = flat(path.points[*next].pos());
         if self.stalled(to_next) {
             self.replans += 1;
@@ -346,12 +367,20 @@ impl Walker {
             }
             return;
         }
-        self.steer(ctx, aim_at, run.min(open + 3.0), false);
+        self.steer(ctx, aim_at, run.min(open + 3.0), false, jump_ahead);
     }
 
     /// Turns towards `target` and holds the keys to get there. `distance`
-    /// is how much room there is to build up speed.
-    fn steer(&mut self, ctx: &mut TickContext<'_>, target: Vec3, distance: f64, slow_near: bool) {
+    /// is how much room there is to build up speed. `force_sprint` is for a
+    /// gap jump, where speed matters even over a short run-up.
+    fn steer(
+        &mut self,
+        ctx: &mut TickContext<'_>,
+        target: Vec3,
+        distance: f64,
+        slow_near: bool,
+        force_sprint: bool,
+    ) {
         let pos = ctx.player.pos;
         let near = ((target.x - pos.x).powi(2) + (target.z - pos.z).powi(2)).sqrt();
         let eye = ctx.player.eye_position();
@@ -373,7 +402,8 @@ impl Walker {
         if climbing && (climb_up || climb_down) && near < 0.45 {
             forward = false;
         }
-        let sprint = forward && yaw_error < 15.0 && distance > 5.0 && !climb_down;
+        let sprint =
+            !climb_down && (force_sprint || (forward && yaw_error < 15.0 && distance > 5.0));
 
         // Blocked by something low: hop, a moment after bumping into it.
         if ctx.player.horizontal_collision && ctx.player.on_ground && forward {
@@ -558,9 +588,10 @@ mod tests {
     fn swims_across_a_deep_channel() {
         let mut sim = Sim::new();
         let water = state("minecraft:water", "level=0");
-        // A two-wide channel deeper than the player across the route.
-        for x in -8..=8 {
-            for z in 4..=5 {
+        // A three-wide channel deeper than the player across the whole
+        // route: too wide to jump, so it has to swim.
+        for x in -32..48 {
+            for z in 4..=6 {
                 for y in 58..=63 {
                     sim.world.set_block_state(x, y, z, water);
                 }
@@ -652,6 +683,91 @@ mod tests {
         assert!(!sim.walker.gave_up());
         assert_eq!(sim.player.pos.y, 64.0);
         assert!(sim.player.pos.z < 1.0, "at {:?}", sim.player.pos);
+    }
+
+    #[test]
+    fn jumps_over_a_short_gap() {
+        let mut sim = Sim::new();
+        // A two-block-wide trench right across the world.
+        for x in -32..48 {
+            for z in 4..=5 {
+                sim.world.set_block_state(x, 63, z, 0);
+            }
+        }
+        sim.walker.go_to(Vec3::new(0.5, 64.0, 10.5));
+        let mut ticks = 0;
+        let mut jumped = false;
+        while !sim.walker.arrived() {
+            sim.step();
+            jumped |= !sim.player.on_ground && sim.player.pos.y > 64.5;
+            ticks += 1;
+            assert!(ticks < 600, "never crossed, at {:?}", sim.player.pos);
+        }
+        assert!(!sim.walker.gave_up());
+        assert!(jumped, "walked into the gap instead of jumping");
+        let p = sim.player.pos;
+        assert!((p.x - 0.5).hypot(p.z - 10.5) < 0.6, "ended at {p:?}");
+        assert!(p.z > 6.0, "did not get past the gap");
+    }
+
+    #[test]
+    fn jumps_a_short_gap_from_near_the_edge() {
+        let mut sim = Sim::new();
+        for x in -32..48 {
+            for z in 4..=5 {
+                sim.world.set_block_state(x, 63, z, 0);
+            }
+        }
+        // Starting almost at the edge leaves no room to build up speed.
+        sim.player.set_pos(Vec3::new(0.5, 64.0, 3.9));
+        sim.walker.go_to(Vec3::new(0.5, 64.0, 10.5));
+        let mut ticks = 0;
+        while !sim.walker.arrived() {
+            sim.step();
+            ticks += 1;
+            assert!(ticks < 600, "never crossed, at {:?}", sim.player.pos);
+        }
+        assert!(!sim.walker.gave_up());
+        assert!(sim.player.pos.z > 6.0, "at {:?}", sim.player.pos);
+    }
+
+    #[test]
+    fn jumps_a_gap_onto_a_one_block_higher_ledge() {
+        let mut sim = Sim::new();
+        for x in -32..48 {
+            for z in 4..=5 {
+                sim.world.set_block_state(x, 63, z, 0);
+            }
+            for z in 6..=12 {
+                sim.world.set_block_state(x, 64, z, 1);
+            }
+        }
+        sim.walker.go_to_exact(Vec3::new(0.5, 65.0, 10.5));
+        let mut ticks = 0;
+        while !sim.walker.arrived() {
+            sim.step();
+            ticks += 1;
+            assert!(ticks < 600, "never got up, at {:?}", sim.player.pos);
+        }
+        assert!(!sim.walker.gave_up());
+        assert_eq!(sim.player.pos.y, 65.0);
+        assert!(sim.player.pos.z > 6.0);
+    }
+
+    #[test]
+    fn gives_up_at_a_gap_too_wide_to_jump() {
+        let mut sim = Sim::new();
+        for x in -32..48 {
+            for z in 4..=7 {
+                sim.world.set_block_state(x, 63, z, 0);
+            }
+        }
+        sim.walker.go_to(Vec3::new(0.5, 64.0, 12.5));
+        for _ in 0..600 {
+            sim.step();
+        }
+        assert!(sim.walker.gave_up());
+        assert!(sim.player.pos.z < 4.5, "at {:?}", sim.player.pos);
     }
 
     #[test]
