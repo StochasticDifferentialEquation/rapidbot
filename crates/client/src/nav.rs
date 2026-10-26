@@ -4,8 +4,9 @@
 //! [`crate::path`] (a moment of standing still, spread over a few ticks),
 //! then follows it using the mouse and keyboard input models, cutting across
 //! open ground instead of following the grid and hopping up blocks. Routes
-//! cross deep water by swimming at the surface. Where no route can be planned
-//! (in mid-air, or from under water) it heads straight for the goal.
+//! cross deep water by swimming at the surface and climb ladders and vines.
+//! Where no route can be planned (in mid-air, or from under water) it heads
+//! straight for the goal.
 
 use rapidbot_human::Noise;
 use rapidbot_physics::Keys;
@@ -43,6 +44,18 @@ enum Plan {
 const SEARCH_LIMIT: usize = 24_000;
 /// Places examined per tick: about a millisecond's work.
 const SEARCH_PER_TICK: usize = 400;
+
+/// Whether the player's feet are in a climbable block. Holding jump then
+/// climbs, and letting go slides back down.
+fn on_climbable(ctx: &TickContext<'_>) -> bool {
+    let pos = ctx.player.pos;
+    path::climbable_at(
+        ctx.world,
+        pos.x.floor() as i32,
+        pos.y.floor() as i32,
+        pos.z.floor() as i32,
+    )
+}
 
 pub struct Walker {
     noise: Noise,
@@ -179,8 +192,9 @@ impl Walker {
 
         match &mut self.plan {
             Plan::None => {
-                // Routes start from the ground: wait out a fall.
-                if !ctx.player.on_ground && !ctx.player.in_water {
+                // Routes start from the ground: wait out a fall. Someone
+                // holding a ladder can be planned from where they are.
+                if !ctx.player.on_ground && !ctx.player.in_water && !on_climbable(ctx) {
                     ctx.set_keys(Keys::default());
                     return;
                 }
@@ -205,7 +219,11 @@ impl Walker {
             }
             Plan::Searching(search) => {
                 // Thinking: stand, and turn towards where we want to go.
-                ctx.set_keys(Keys::default());
+                // Hold a ladder so planning does not turn into sliding down.
+                ctx.set_keys(Keys {
+                    jump: on_climbable(ctx),
+                    ..Keys::default()
+                });
                 let eye = ctx.player.eye_position();
                 let (yaw, _) = angles_to(eye, Vec3::new(goal.x, eye.y, goal.z));
                 ctx.aim(yaw, self.gaze_pitch, 8.0);
@@ -345,8 +363,17 @@ impl Walker {
         let yaw_error = wrap_degrees(yaw - ctx.player.y_rot).abs();
         // People start walking while still turning, but not backwards, and
         // not off to the side of something close.
-        let forward = yaw_error < if near < 1.5 && !slow_near { 30.0 } else { 50.0 };
-        let sprint = forward && yaw_error < 15.0 && distance > 5.0;
+        let mut forward = yaw_error < if near < 1.5 && !slow_near { 30.0 } else { 50.0 };
+
+        // On a ladder or vine, jump climbs and no key slides down. Aim
+        // straight up or down without walking off the rungs.
+        let climbing = on_climbable(ctx);
+        let climb_up = climbing && target.y > pos.y + 0.05;
+        let climb_down = climbing && target.y < pos.y - 0.05;
+        if climbing && (climb_up || climb_down) && near < 0.45 {
+            forward = false;
+        }
+        let sprint = forward && yaw_error < 15.0 && distance > 5.0 && !climb_down;
 
         // Blocked by something low: hop, a moment after bumping into it.
         if ctx.player.horizontal_collision && ctx.player.on_ground && forward {
@@ -362,10 +389,11 @@ impl Walker {
             self.jump_in = None;
         }
         // Holding space while sprinting a long way: a hop every landing.
-        // In water, space keeps the head up.
+        // In water, space keeps the head up. Up a ladder it climbs.
         let jump = self.jump_hold > 0
             || (self.sprint_jumps && sprint && distance > 8.0)
-            || ctx.player.in_water;
+            || ctx.player.in_water
+            || climb_up;
         self.jump_hold = self.jump_hold.saturating_sub(1);
 
         ctx.set_keys(Keys {
@@ -576,6 +604,54 @@ mod tests {
         assert!(!sim.walker.gave_up());
         let p = sim.player.pos;
         assert!((p.x - 0.5).hypot(p.z - 8.5) < 0.6, "ended at {p:?}");
+    }
+
+    #[test]
+    fn climbs_a_ladder_to_a_platform_and_back_down() {
+        let mut sim = Sim::new();
+        let ladder = state("minecraft:ladder", "waterlogged=false");
+        let ladder_block = Registry::get()
+            .block_by_name("minecraft:ladder")
+            .unwrap()
+            .id;
+        sim.tags
+            .insert("minecraft:block", "minecraft:climbable", ladder_block);
+        // A ladder on the south side of an eight-block wall, with a walkable
+        // top. The player has to climb it; jumping up is too high.
+        for y in 64..=71 {
+            sim.world.set_block_state(0, y, 1, ladder);
+            for x in -1..=1 {
+                sim.world.set_block_state(x, y, 2, 1);
+            }
+        }
+        sim.walker.go_to_exact(Vec3::new(0.5, 72.0, 2.5));
+        let mut ticks = 0;
+        let mut climbed = false;
+        while !sim.walker.arrived() {
+            sim.step();
+            ticks += 1;
+            climbed |= sim.player.pos.y > 65.0;
+            assert!(ticks < 600, "never climbed, at {:?}", sim.player.pos);
+        }
+        assert!(!sim.walker.gave_up());
+        assert!(climbed, "never left the ground");
+        assert_eq!(sim.player.pos.y, 72.0);
+        assert!(sim.player.pos.z > 1.5, "at {:?}", sim.player.pos);
+
+        sim.walker.go_to_exact(Vec3::new(0.5, 64.0, 0.5));
+        let mut ticks = 0;
+        while !sim.walker.arrived() {
+            sim.step();
+            ticks += 1;
+            assert!(ticks < 600, "never got down, at {:?}", sim.player.pos);
+        }
+        // Arrival is horizontal; let the last drop settle.
+        for _ in 0..40 {
+            sim.step();
+        }
+        assert!(!sim.walker.gave_up());
+        assert_eq!(sim.player.pos.y, 64.0);
+        assert!(sim.player.pos.z < 1.0, "at {:?}", sim.player.pos);
     }
 
     #[test]
