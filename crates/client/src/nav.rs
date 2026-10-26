@@ -282,7 +282,7 @@ impl Walker {
         // under us: think again.
         let ahead = path.points[*next];
         let off_route = flat(ahead.pos()) > 6.0 || (pos.y - ahead.surface).abs() > 4.5;
-        let broken = ctx.tick % 20 == 0
+        let broken = ctx.tick.is_multiple_of(20)
             && path.points[*next..(*next + 8).min(path.points.len())]
                 .iter()
                 .any(|w| {

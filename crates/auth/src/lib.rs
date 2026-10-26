@@ -161,10 +161,10 @@ impl Authenticator {
     /// simply plays without a chat session.
     async fn chat_keys(&mut self, access_token: &str) -> Result<Option<ChatKeys>, AuthError> {
         let now_ms = now_secs() * 1000;
-        if let Some(keys) = &self.cache.chat_keys {
-            if keys.refreshed_after > now_ms {
-                return Ok(Some(keys.clone()));
-            }
+        if let Some(keys) = &self.cache.chat_keys
+            && keys.refreshed_after > now_ms
+        {
+            return Ok(Some(keys.clone()));
         }
         match minecraft::certificates(&self.http, access_token).await {
             Ok(keys) => {

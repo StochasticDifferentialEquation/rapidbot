@@ -227,23 +227,23 @@ impl PackManager {
         let mut turn = PackTurn::default();
         let now = Instant::now();
 
-        if let Prompt::Showing { until } = self.prompt {
-            if now >= until {
-                if self.policy == ResourcePackPolicy::Decline {
-                    // rejectServerPacks: every pack waiting is declined.
-                    self.prompt = Prompt::Declined;
-                    for pack in self.packs.drain(..) {
-                        turn.responses.push((pack.id, Action::Declined));
-                    }
-                    turn.disconnect = required;
-                    return turn;
+        if let Prompt::Showing { until } = self.prompt
+            && now >= until
+        {
+            if self.policy == ResourcePackPolicy::Decline {
+                // rejectServerPacks: every pack waiting is declined.
+                self.prompt = Prompt::Declined;
+                for pack in self.packs.drain(..) {
+                    turn.responses.push((pack.id, Action::Declined));
                 }
-                // allowServerPacks
-                self.prompt = Prompt::Allowed;
-                for index in 0..self.packs.len() {
-                    if self.packs[index].download == Download::Waiting {
-                        self.accept(index, &mut turn);
-                    }
+                turn.disconnect = required;
+                return turn;
+            }
+            // allowServerPacks
+            self.prompt = Prompt::Allowed;
+            for index in 0..self.packs.len() {
+                if self.packs[index].download == Download::Waiting {
+                    self.accept(index, &mut turn);
                 }
             }
         }
@@ -342,15 +342,15 @@ async fn download(request: Request) -> Result<Downloaded, String> {
         (Some(dir), Some(hash)) => Some(dir.join(request.id.to_string()).join(hash)),
         _ => None,
     };
-    if let (Some(marker), Some(hash)) = (&marker, &request.hash) {
-        if marker.exists() {
-            return Ok(Downloaded {
-                sha1: hash.clone(),
-                size: 0,
-                is_zip: true,
-                from_cache: true,
-            });
-        }
+    if let (Some(marker), Some(hash)) = (&marker, &request.hash)
+        && marker.exists()
+    {
+        return Ok(Downloaded {
+            sha1: hash.clone(),
+            size: 0,
+            is_zip: true,
+            from_cache: true,
+        });
     }
 
     let body = fetch(&request).await?;
@@ -358,12 +358,12 @@ async fn download(request: Request) -> Result<Downloaded, String> {
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect::<String>();
-    if let Some(hash) = &request.hash {
-        if *hash != sha1 {
-            return Err(format!(
-                "hash of downloaded file ({sha1}) did not match requested ({hash})"
-            ));
-        }
+    if let Some(hash) = &request.hash
+        && *hash != sha1
+    {
+        return Err(format!(
+            "hash of downloaded file ({sha1}) did not match requested ({hash})"
+        ));
     }
     let is_zip = body.starts_with(b"PK");
     if let Some(dir) = &request.cache {
@@ -441,13 +441,12 @@ async fn fetch(request: &Request) -> Result<Vec<u8>, String> {
         let mut rng = <rand::rngs::StdRng as rand::SeedableRng>::seed_from_u64(seed);
         let bytes = request_bytes(&url, &request.username, request.profile, &mut rng);
         let response = round_trip(&url, &bytes).await?;
-        if matches!(response.status, 300..=303 | 305 | 307 | 308) {
-            if let Some(next) = response.location.as_deref().and_then(|l| url.join(l).ok()) {
-                if next.scheme() == url.scheme() {
-                    url = next;
-                    continue;
-                }
-            }
+        if matches!(response.status, 300..=303 | 305 | 307 | 308)
+            && let Some(next) = response.location.as_deref().and_then(|l| url.join(l).ok())
+            && next.scheme() == url.scheme()
+        {
+            url = next;
+            continue;
         }
         if response.status >= 400 {
             return Err(format!("server returned HTTP {}", response.status));

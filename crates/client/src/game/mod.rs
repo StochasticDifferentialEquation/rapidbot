@@ -193,11 +193,11 @@ impl Game {
             self.frames.wait_for_next_frame(frame_start, in_menu);
             // Test hook: RAPIDBOT_STALL_MS=400 freezes the client for that
             // long every ten seconds, to see how a server takes lag spikes.
-            if let Some(ms) = stall_ms() {
-                if self.last_stall.elapsed().as_secs() >= 10 {
-                    std::thread::sleep(std::time::Duration::from_millis(ms));
-                    self.last_stall = Instant::now();
-                }
+            if let Some(ms) = stall_ms()
+                && self.last_stall.elapsed().as_secs() >= 10
+            {
+                std::thread::sleep(std::time::Duration::from_millis(ms));
+                self.last_stall = Instant::now();
             }
         }
     }

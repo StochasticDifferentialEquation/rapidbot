@@ -416,10 +416,9 @@ pub fn clip(world: &World, from: [f64; 3], to: [f64; 3]) -> BlockHit {
         if let Some(inner) = registry
             .interaction_shape(state)
             .and_then(|s| s.clip(from, to, pos))
+            && distance_sqr(inner.location, from) < distance_sqr(hit.location, from)
         {
-            if distance_sqr(inner.location, from) < distance_sqr(hit.location, from) {
-                hit.direction = inner.direction;
-            }
+            hit.direction = inner.direction;
         }
         Some(hit)
     });

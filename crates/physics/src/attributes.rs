@@ -54,9 +54,7 @@ impl Instance {
         for (_, amount) in &self.modifiers[2] {
             result *= 1.0 + amount;
         }
-        if result.is_nan() {
-            self.min
-        } else if result < self.min {
+        if result.is_nan() || result < self.min {
             self.min
         } else {
             rapidbot_world::aabb::java_min(result, self.max)

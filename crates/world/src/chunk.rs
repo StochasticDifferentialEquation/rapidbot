@@ -146,8 +146,10 @@ fn read_longs_for(buf: &mut &[u8], bits: u32, entries: usize) -> Result<Vec<u64>
     let count = entries.div_ceil(per_long);
     let bytes = take(buf, count * 8)?;
     Ok(bytes
-        .chunks_exact(8)
-        .map(|c| u64::from_be_bytes(c.try_into().unwrap()))
+        .as_chunks::<8>()
+        .0
+        .iter()
+        .map(|c| u64::from_be_bytes(*c))
         .collect())
 }
 

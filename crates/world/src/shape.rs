@@ -249,6 +249,7 @@ impl PlacedShape<'_> {
 /// `Shapes.createIndexMerger` for an AND with neither side mattering alone.
 /// Returns the `(firstIndex, secondIndex)` pairs `forMergedIndexes` visits,
 /// or `None` for a `NonOverlappingMerger` (which can never satisfy AND).
+#[allow(clippy::neg_cmp_op_on_partial_ord)] // Vanilla's negated float comparison keeps NaN ordering stable.
 fn merge(first: &[f64], second: &[f64]) -> Option<Vec<(i64, i64)>> {
     let first_size = first.len() - 1;
     let second_size = second.len() - 1;

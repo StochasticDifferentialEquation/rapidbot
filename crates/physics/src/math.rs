@@ -155,7 +155,7 @@ impl Vec3 {
         Self { x, y, z }
     }
 
-    pub fn add(self, o: Vec3) -> Self {
+    pub fn plus(self, o: Vec3) -> Self {
         Self::new(self.x + o.x, self.y + o.y, self.z + o.z)
     }
 
@@ -261,7 +261,7 @@ mod tests {
             (3.0, -0.5, 1.735944546704755),
             (-2.0, -7.0, -2.86329304374212),
             (0.0, 1.0, 0.0),
-            (5.0, 0.0, 1.5707963267948966),
+            (5.0, 0.0, std::f64::consts::FRAC_PI_2),
         ];
         for (y, x, expected) in cases {
             assert_eq!(atan2(y, x), expected, "atan2({y}, {x})");
