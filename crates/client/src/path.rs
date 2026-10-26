@@ -4,7 +4,7 @@
 //! decides *where* to go. [`crate::nav::Walker`] turns the result into
 //! mouse and key input.
 //!
-//! Not handled yet: ladders, gap jumps, doors, breaking or placing blocks.
+//! Not handled yet: gap jumps, doors, breaking or placing blocks.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
@@ -27,12 +27,24 @@ const MAX_DROP: f64 = 3.2;
 const DANGER: u8 = 1;
 const WATER: u8 = 2;
 const CACTUS: u8 = 4;
+const CLIMB: u8 = 8;
 
-/// Per block state: whether touching it hurts or traps, and whether it
-/// holds water.
+/// Per block state: whether touching it hurts or traps, whether it holds
+/// water, and whether it can be climbed.
 fn traits() -> &'static [u8] {
     static TRAITS: OnceLock<Vec<u8>> = OnceLock::new();
     TRAITS.get_or_init(|| {
+        const CLIMBABLE: [&str; 9] = [
+            "minecraft:ladder",
+            "minecraft:vine",
+            "minecraft:scaffolding",
+            "minecraft:twisting_vines",
+            "minecraft:twisting_vines_plant",
+            "minecraft:weeping_vines",
+            "minecraft:weeping_vines_plant",
+            "minecraft:cave_vines",
+            "minecraft:cave_vines_plant",
+        ];
         const HARMFUL: [&str; 14] = [
             "minecraft:fire",
             "minecraft:soul_fire",
@@ -65,6 +77,9 @@ fn traits() -> &'static [u8] {
                 if name == "minecraft:cactus" {
                     t |= CACTUS;
                 }
+                if CLIMBABLE.contains(&name) {
+                    t |= CLIMB;
+                }
                 t
             })
             .collect()
@@ -75,6 +90,10 @@ fn trait_at(world: &World, x: i32, y: i32, z: i32) -> u8 {
     world
         .block_state(x, y, z)
         .map_or(0, |s| traits()[s as usize])
+}
+
+pub(crate) fn climbable_at(world: &World, x: i32, y: i32, z: i32) -> bool {
+    trait_at(world, x, y, z) & CLIMB != 0
 }
 
 /// Whether a player-sized column centred in block column (x, z) is free of
@@ -111,6 +130,7 @@ fn column_free(world: &World, x: i32, z: i32, y0: f64, y1: f64) -> bool {
 /// The height a player stands at with their feet in block cell (x, y, z):
 /// on a low shape in the cell itself (slab, carpet) or on the block below.
 /// In deep water, the top water cell is a place to float at the surface.
+/// A climbable block is a place to hold on at its own height.
 /// `None` if there is nothing to stand on, no room, or it is harmful.
 pub fn surface(world: &World, x: i32, y: i32, z: i32) -> Option<f64> {
     let registry = Registry::get();
@@ -130,6 +150,8 @@ pub fn surface(world: &World, x: i32, y: i32, z: i32) -> Option<f64> {
     };
     let (s, floor) = if let Some(s) = water_surface {
         (s, here)
+    } else if climbable_at(world, x, y, z) {
+        (y as f64, here)
     } else {
         match here_shape {
             Some(shape) => {
@@ -387,6 +409,40 @@ impl Search {
                 }
                 break;
             }
+        }
+        self.climb(world, id, cell, cost);
+    }
+
+    /// Ladder and vine columns are climbed one block at a time. A player
+    /// can also jump into a climbable cell directly above the ground.
+    fn climb(&mut self, world: &World, id: u32, cell: (i32, i32, i32), cost: f64) {
+        let (x, y, z) = cell;
+        if !climbable_at(world, x, y, z) {
+            // Jump into a ladder that starts just above the ground, or
+            // step down onto one that starts just below the feet.
+            for (ny, step_cost) in [(y + 1, 2.0), (y - 1, 1.0)] {
+                if !climbable_at(world, x, ny, z) {
+                    continue;
+                }
+                let s2 = ny as f64;
+                if column_free(world, x, z, s2, s2 + HEIGHT) {
+                    self.relax(world, id, (x, ny, z), s2, cost + step_cost);
+                }
+            }
+            return;
+        }
+        for ny in [y + 1, y - 1] {
+            if !climbable_at(world, x, ny, z) {
+                continue;
+            }
+            let Some(s2) = self.surface(world, (x, ny, z)) else {
+                continue;
+            };
+            if (s2 - ny as f64).abs() > 1.0e-6 || !column_free(world, x, z, s2, s2 + HEIGHT) {
+                continue;
+            }
+            let step_cost = if ny > y { 1.0 } else { 1.2 };
+            self.relax(world, id, (x, ny, z), s2, cost + step_cost);
         }
     }
 
@@ -708,6 +764,31 @@ mod tests {
                 .all(|p| (p[0].surface - p[1].surface).abs() < 1.5),
             "no impossible jumps between waypoints"
         );
+    }
+
+    #[test]
+    fn climbs_a_ladder_to_a_platform() {
+        let mut world = flat();
+        let ladder = state("minecraft:ladder", "waterlogged=false");
+        // A ladder on the south side of a four-block platform.
+        for y in 64..=67 {
+            world.set_block_state(0, y, 1, ladder);
+            for x in -1..=1 {
+                world.set_block_state(x, y, 2, 1);
+            }
+        }
+        assert_eq!(surface(&world, 0, 64, 1), Some(64.0));
+        assert_eq!(surface(&world, 0, 67, 1), Some(67.0));
+        let path = find(&world, start(), Goal::Block { x: 0, y: 68, z: 2 }, 20_000).unwrap();
+        assert!(path.complete, "did not reach the platform");
+        assert!(
+            path.points
+                .iter()
+                .any(|p| p.cell == (0, 66, 1) && p.surface == 66.0),
+            "path did not climb the ladder: {:?}",
+            path.points
+        );
+        assert_eq!(path.points.last().unwrap().pos(), Vec3::new(0.5, 68.0, 2.5));
     }
 
     #[test]
